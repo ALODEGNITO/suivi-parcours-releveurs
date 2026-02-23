@@ -1,0 +1,755 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+
+<!-- code responsive -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<title>Parcours Releveur</title>
+
+<!-- Style global -->
+<link rel="stylesheet" href="css/style.css">
+
+        <script>
+            fetch("/favicon.html")
+            .then(res => res.text())
+            .then(html => {
+                document.head.innerHTML += html;
+            });
+        </script>
+<title>Classement des Releveurs</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+body { margin:0; font-family: Arial, sans-serif; background:#f5f6fa; padding:20px; }
+h2 { text-align:center; color:#2563eb; }
+table { width:100%; border-collapse:collapse; margin-top:20px; background:#fff; box-shadow:0 2px 5px rgba(0,0,0,.1); }
+th, td { border:1px solid #ddd; padding:10px; text-align:center; font-size:14px; }
+th { background:#2563eb; color:#fff; cursor:pointer; }
+tr:nth-child(even) { background:#f9f9f9; }
+button { padding:8px 12px; margin:5px; background:#2563eb; color:#fff; border:none; 
+border-radius:4px; cursor:pointer;}
+button:hover { background:#0056b3; }
+.badge { padding:4px 8px; border-radius:4px; color:#fff; font-size:12px; }
+.en-avance { background:green; }
+.en-cours { background:orange; }
+.en-retard { background:red; }
+.terminee { background:blue; }
+#top3 { margin-top:20px; padding:10px; background:#fff; box-shadow:0 2px 5px rgba(0,0,0,.1); }
+.alert { background:#ffdddd; padding:8px; margin:5px 0; border-left:5px solid red; }
+.rank-btn { background: #ff0707; color:#fff; } .rank-btn:hover { background: #e0a800; }
+
+/* 📱 Adaptation du petit graphe */
+/*#rankingChart {
+    max-width: 100%;
+    min-height: 300px;  /* ✅ Hauteur augmentée *
+}*/
+
+/* 📱 Adaptation d'agrandissement du graphe */
+#rankingChart {
+    max-width: 100%;
+    min-height: 500px; /* ✅ Hauteur augmentée */
+    width: 100%;
+}
+
+
+canvas {
+    display:block;
+    margin:0 auto;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+
+/* Representation des couleurs du graphes */
+#chartLegend h4 {
+    margin-bottom: 8px;
+    color: #333;
+}
+
+#chartLegend ul li {
+    display: flex;
+    align-items: center;
+}
+
+
+/* ===== 29.01.2026 ===== */
+
+/* ===== HEADER FIXE ===== */
+.fixed-header {
+    position: sticky;
+    top: 0;
+    z-index: 999;
+    background: #f5f6fa;
+    padding: 15px 0;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+}
+
+/* Espace entre header et tableau */
+.fixed-header h2 {
+    margin: 10px 0;
+    font-size: 20px;
+}
+
+/* Boutons bien alignés */
+.btn-group {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+/* ===== TABLEAU AVEC SCROLL ===== */
+.table-wrapper {
+    max-height: 420px; /* tu peux augmenter si tu veux */
+    overflow-y: auto;
+    margin-top: 20px;
+    border-radius: 6px;
+}
+
+/* ===== ENTÊTE TABLEAU FIXE ===== */
+thead th {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: #007bff;
+    color: #fff;
+}
+
+
+/* ================= ULTRA PRINT PRO ================= */
+
+.print-header,
+.print-footer{
+    display:none;
+}
+
+@media print{
+
+    @page{
+        size:A4 landscape;
+        margin:12mm;
+    }
+
+    body{
+        background:white;
+        padding:0;
+    }
+
+    /* cacher tout sauf tableau */
+    .fixed-header,
+    #toggleBtn,
+    #top3,
+    #rankingChart,
+    #chartLegend,
+    #alerts,
+    #loader,
+    button{
+        display:none !important;
+    }
+
+    #printArea{
+        display:block;
+    }
+
+    /* HEADER */
+    .print-header{
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        margin-bottom:10px;
+    }
+
+    .print-logo{
+        height:55px;
+    }
+
+    .print-title-box{
+        flex:1;
+        text-align:center;
+        font-weight:bold;
+    }
+
+    .print-main-title{
+        font-size:20px;
+    }
+
+    .print-sub{
+        font-size:12px;
+        margin-top:3px;
+    }
+
+    /* FOOTER */
+    .print-footer{
+        display:block;
+        position:fixed;
+        bottom:5mm;
+        left:0;
+        right:0;
+        font-size:11px;
+        color:#444;
+    }
+
+    .footer-left{ float:left; }
+    .footer-right{ float:right; }
+
+    .page-number:after{
+        content:"Page " counter(page) " / " counter(pages);
+    }
+
+    /* TABLE */
+    .table-wrapper{
+        max-height:none !important;
+        overflow:visible !important;
+        border:none;
+    }
+
+    table{
+        width:100%;
+        font-size:10.5px;
+        border-collapse:collapse;
+    }
+
+    th{
+        background:#eee !important;
+        color:black !important;
+    }
+
+    th,td{
+        border:1px solid #888;
+        padding:4px;
+    }
+
+    tr{
+        page-break-inside:avoid;
+    }
+
+    thead{
+        display:table-header-group;
+    }
+}
+
+
+/* ===== LOADER PRO MODERNE ===== */
+
+#loaderPro{
+    position:fixed;
+    /*top:20px;*/
+    top:330px;
+    left:50%;
+    transform:translateX(-50%);
+    z-index:9999;
+    transition:opacity .3s ease, transform .3s ease;
+    pointer-events:none; /* IMPORTANT: page reste cliquable */
+}
+
+.loader-hidden{
+    opacity:0;
+    transform:translate(-50%,-15px);
+}
+
+.loader-visible{
+    opacity:1;
+    transform:translate(-50%,0);
+}
+
+.loader-box{
+    background:white;
+    padding:14px 18px;
+    border-radius:14px;
+    box-shadow:0 6px 25px rgba(0,0,0,0.15);
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:8px;
+    min-width:220px;
+    font-family:Arial,sans-serif;
+}
+
+/* spinner moderne */
+.spinner-pro{
+    width:28px;
+    height:28px;
+    border:3px solid #e6e6e6;
+    border-top:3px solid #007bff;
+    border-radius:50%;
+    animation:spinPro .8s linear infinite;
+}
+
+@keyframes spinPro{
+    to{ transform:rotate(360deg); }
+}
+
+/* texte */
+.loader-text{
+    font-size:14px;
+    color:#333;
+}
+
+/* barre */
+.progress-bar{
+    width:100%;
+    height:4px;
+    background:#eee;
+    border-radius:4px;
+    overflow:hidden;
+}
+
+.progress{
+    width:40%;
+    height:100%;
+    background:#007bff;
+    animation:progressMove 1.2s infinite ease-in-out;
+}
+
+@keyframes progressMove{
+    0%{ transform:translateX(-100%); }
+    50%{ transform:translateX(120%); }
+    100%{ transform:translateX(250%); }
+}
+
+</style>
+</head>
+
+<!-- code pour controler les inactivites -->
+<!-- <script src="js/logout.js"></script>-->
+
+<body>
+
+<!-- ===== LOADER PRO ===== -->
+<div id="loaderPro" class="loader-hidden">
+    <div class="loader-box">
+        <div class="spinner-pro"></div>
+        <div class="loader-text">Chargement des données...</div>
+        <div class="progress-bar">
+            <div class="progress"></div>
+        </div>
+    </div>
+</div>    
+
+<div class="fixed-header">
+    <button onclick="window.location.href='admin-map.html'" style="background-color:#b91c1c;">
+    ⬅ Retour à la carte</button>
+    <h2>🏆 Performance d'un Releveur par Rapport au Nombre de Points Visités sur le Nombre de Points à Visiter (%)</h2>
+
+    <div>
+        <button onclick="sortRanking('percent')">Trier par %</button>
+        <button onclick="sortRanking('effectue')">Trier par effectués</button>
+        <button onclick="sortRanking('restant')">Trier par restants</button>
+        <button onclick="sortRanking('temps')">Trier par temps</button>
+        <button onclick="exportExcel()" style="background:#16a34a;">📊 Export Excel</button>
+        <!--<button onclick="exportPDF()">📄 Export PDF</button>-->
+
+        <button onclick="printClassementPro()" style="background:#16a34a;">
+            🖨 Impression PDF
+        </button>
+
+
+        <button onclick="window.location.href='classement_individuel.html'">
+        Statistiques Personnelles d'un Releveur</button>
+        <button onclick="window.location.href='classement-en-nombre-de-releves.html'">
+        Classement par nombre relevés</button>
+        <button class="rank-btn" onclick="window.location.href='accueil.html'" style="background-color:#b91c1c;">
+        Retour</button>
+    </div>
+</div>
+
+
+<div id="printArea">
+
+<div class="print-header">
+    <img src="images/logos-NDE.png" class="print-logo">
+
+    <div class="print-title-box">
+        <div class="print-main-title">CLASSEMENT DES RELEVEURS PAR NOMBRE DE POINTS RELEVÉS (%)</div>
+        <div class="print-sub" id="printDate"></div>
+        <div class="print-sub" id="printTotals"></div>
+    </div>
+</div>
+
+
+<div class="table-wrapper">
+    <table>
+        <thead>
+            <tr>
+                <th>Matricule</th>
+                <th>Nom du releveur</th>
+                <th>Nombre de Points à relever</th>
+                <th>Points effectués</th>
+                <th>Points restants</th>
+                <th>Statistique (%)</th>
+                <th>Statut</th>
+            </tr>
+        </thead>
+        <tbody id="rankingTable"></tbody>
+    </table>
+</div>
+</div>   <!-- fin printArea -->
+
+
+<!-- 🔘 Bouton afficher tout / moins -->
+<div style="text-align:center; margin-top:10px;">
+    <button id="toggleBtn" onclick="toggleTable()">⬇️ Afficher tout</button>
+</div>
+
+
+<div id="top3">
+    <h3>🥇 Top 3 Releveurs</h3>
+    <ol id="topList"></ol>
+</div>
+
+<!-- ✅ Graphique responsive avec hauteur augmentée -->
+<div style="max-width:100%; margin:auto;">
+    <canvas id="rankingChart"></canvas>
+</div>
+
+<!-- Légende du graphique -->
+<div id="chartLegend" style="margin-top:15px; text-align:center;">
+    <h4>🗂️ Légende des couleurs</h4>
+    <ul style="list-style:none; padding:0; display:flex; justify-content:center; gap:20px; font-size:14px;">
+        <li><span class="color-box" style="background:#007bff; width:15px; height:15px; display:inline-block; margin-right:6px; border-radius:3px;"></span>Terminé (100%)</li>
+        <li><span class="color-box" style="background:green; width:15px; height:15px; display:inline-block; margin-right:6px; border-radius:3px;"></span>Presque fini (≥90%)</li>
+        <li><span class="color-box" style="background:orange; width:15px; height:15px; display:inline-block; margin-right:6px; border-radius:3px;"></span>En cours (&lt;90%)</li>
+    </ul>
+</div>
+
+
+<div id="alerts"></div>
+
+<script>
+/*let rankingData = [
+    { matricule:"0001", nom:"Garba Amadou", total:120, effectue:120, start:new Date(Date.now()-3600*1000) },
+    { matricule:"0002", nom:"Aminata Koné", total:110, effectue:92, start:new Date(Date.now()-5400*1000) },
+    { matricule:"0003", nom:"Ami Alhadj", total:98, effectue:80, start:new Date(Date.now()-7200*1000) },
+    { matricule:"0004", nom:"Fatou Diallo", total:85, effectue:70, start:new Date(Date.now()-3000*1000) },
+    { matricule:"0005", nom:"Souley Soumaila", total:70, effectue:50, start:new Date(Date.now()-2000*1000) }
+];*/
+
+let rankingData = [];
+
+//Fonction api des releves effectués par les releveurs
+/*async function fetchRankingData() {
+    showLoader(); // Affiche le loader pendant le chargement
+
+    try {
+        const response = await fetch("http://41.138.61.43:8081/api/wseentrelec");
+        if (!response.ok) throw new Error("Erreur réseau: " + response.status);
+        const data = await response.json();
+
+        // ✅ Conversion des données de l’API vers ton format interne
+        rankingData = data.map(item => ({
+            matricule: item.matriaa,          // matricule
+            nom: item.nomaa,                  // nom du releveur
+            total: Number(item.nbretotal),    // total des points
+            effectue: Number(item.nbrerele),  // points effectués
+            start: new Date()                 // pour le tri par temps
+        }));
+
+        renderRanking(); // affiche le tableau et le graphique
+    } catch (err) {
+        console.error("Erreur lors du chargement des données:", err);
+        alert("❌ Impossible de charger les données depuis le serveur !");
+    } finally {
+        hideLoader(); // Cache le loader quoi qu’il arrive
+    }
+}*/
+
+
+async function fetchRankingData() {
+    showLoader("Chargement données...");
+
+    try {
+        const response = await fetch("http://41.138.61.43:8081/api/wseentrelec");
+        if (!response.ok) throw new Error("Erreur réseau: " + response.status);
+        const data = await response.json();
+
+        rankingData = data.map(item => ({
+            matricule: item.matriaa,
+            nom: item.nomaa,
+            total: Number(item.nbretotal),
+            effectue: Number(item.nbrerele),
+            start: new Date()
+        }));
+
+        renderRanking();
+    } catch (err) {
+        console.error("Erreur lors du chargement des données:", err);
+        alert("❌ Impossible de charger les données depuis le serveur !");
+    } finally {
+        hideLoader();
+    }
+
+    return rankingData; // ✅ nécessaire pour utiliser .then()
+}
+
+
+let showAll = false; // État d’affichage du tableau
+
+function renderRanking() {
+    const tbody = document.getElementById("rankingTable");
+    tbody.innerHTML = "";
+
+    const moyenne = rankingData.reduce((a, r) => a + (r.effectue / r.total), 0) / rankingData.length;
+
+    // ✅ Affiche soit tout, soit seulement les 5 premiers
+    const dataToShow = showAll ? rankingData : rankingData.slice(0, 5);
+
+    dataToShow.forEach(r => {
+        const restant = r.total - r.effectue;
+        const percent = (r.effectue / r.total);
+        const stat = (percent * 100).toFixed(1) + "%";
+
+        let badge = "", cls = "";
+        if (r.effectue >= r.total) { badge = "✅ Tournée terminée"; cls = "terminee"; }
+        else if (percent > moyenne) { badge = "🎯 En avance"; cls = "en-avance"; }
+        else if (percent > 0) { badge = "⏳ En cours"; cls = "en-cours"; }
+        else { badge = "⚠️ En retard"; cls = "en-retard"; }
+
+        tbody.innerHTML += `
+            <tr>
+                <td>${r.matricule}</td>
+                <td>${r.nom}</td>
+                <td>${r.total}</td>
+                <td>${r.effectue}</td>
+                <td>${restant}</td>
+                <td>${stat}</td>
+                <td><span class="badge ${cls}">${badge}</span></td>
+            </tr>
+        `;
+    });
+
+    updateTop3();
+    updateChart();
+    checkAlerts();
+
+    // ✅ Met à jour le texte du bouton
+    const btn = document.getElementById("toggleBtn");
+    if (btn) btn.textContent = showAll ? "⬆️ Afficher moins" : "⬇️ Afficher tout";
+}
+
+
+function updateTop3(){
+    const top= [...rankingData].sort((a,b)=>(b.effectue/b.total)-(a.effectue/a.total)).slice(0,3);
+    const list=document.getElementById("topList");
+    list.innerHTML="";
+    top.forEach(r=>{
+        list.innerHTML+=`<li>${r.nom} - ${(r.effectue/r.total*100).toFixed(1)}%</li>`;
+    });
+}
+
+let chart;
+function updateChart(){
+    const ctx=document.getElementById("rankingChart").getContext("2d");
+    if(chart) chart.destroy();
+    chart=new Chart(ctx,{
+        type:'bar',
+        data:{
+            labels:rankingData.map(r=>r.nom),
+            datasets:[{
+                label:"% d’avancement",
+                data:rankingData.map(r=>(r.effectue/r.total*100).toFixed(1)),
+                backgroundColor: rankingData.map(r => {
+                const percent = (r.effectue / r.total) * 100;
+                if (percent === 100) return "#007bff";      // 🟢 100%
+                else if (percent >= 90) return "green";  // 🟠 90% et +
+                else return "orange";                    // 🔵 défaut
+                })
+
+                
+
+            }]
+        },
+        options:{
+            responsive:true,
+            maintainAspectRatio:false, // ✅ s'adapte à la hauteur CSS
+            plugins:{ legend:{ display:true } },
+            scales:{ y:{ beginAtZero:true, max:100 } }
+        }
+    });
+}
+
+/*function sortRanking(crit){
+    if(crit=="percent") rankingData.sort((a,b)=>(b.effectue/b.total)-(a.effectue/a.total));
+    if(crit=="effectue") rankingData.sort((a,b)=>b.effectue-a.effectue);
+    if(crit=="restant") rankingData.sort((a,b)=>(a.total-a.effectue)-(b.total-b.effectue));
+    if(crit=="temps") rankingData.sort((a,b)=>a.start-b.start);
+    renderRanking();
+}*/
+
+function sortRanking(crit){
+    // ✅ Affiche le loader
+    howLoader("Chargement données..."); 
+    
+    setTimeout(() => { // Simule un court délai de tri
+        if(crit=="percent") rankingData.sort((a,b)=>(b.effectue/b.total)-(a.effectue/a.total));
+        if(crit=="effectue") rankingData.sort((a,b)=>b.effectue-a.effectue);
+        if(crit=="restant") rankingData.sort((a,b)=>(a.total-a.effectue)-(b.total-b.effectue));
+        if(crit=="temps") rankingData.sort((a,b)=>a.start-b.start);
+        
+        renderRanking();
+        hideLoader(); // ✅ Cache le loader une fois le tri terminé
+    }, 700); // 0,7 seconde d’animation
+}
+
+
+function exportExcel(){
+    const ws=XLSX.utils.json_to_sheet(rankingData.map(r=>({
+        Matricule:r.matricule,
+        Nom:r.nom,
+        Total:r.total,
+        Effectue:r.effectue,
+        Restant:r.total-r.effectue,
+        Pourcentage:(r.effectue/r.total*100).toFixed(1)+"%"
+    })));
+    const wb=XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb,ws,"Classement");
+    XLSX.writeFile(wb,"classement.xlsx");
+}
+
+/*function exportPDF(){
+    const { jsPDF } = window.jspdf;
+    const doc=new jsPDF();
+    doc.text("Classement des Releveurs",20,20);
+    let y=40;
+    rankingData.forEach(r=>{
+        doc.text(`${r.matricule} - ${r.nom} - ${(r.effectue/r.total*100).toFixed(1)}%`,20,y);
+        y+=10;
+    });
+    doc.save("classement.pdf");
+}*/
+
+// --- Gestion des alertes avec affichage limité ---
+let showAllAlerts = false; // État d'affichage des alertes (false = seulement 5)
+
+function checkAlerts() {
+    const div = document.getElementById("alerts");
+    div.innerHTML = "";
+
+    // Filtrer les releveurs en retard
+    const alerts = rankingData
+        .filter(r => {
+            const restant = r.total - r.effectue;
+            return restant > 20 && (r.effectue / r.total) < 0.3;
+        })
+        .map(r => ({
+            nom: r.nom,
+            restant: r.total - r.effectue
+        }));
+
+    if (alerts.length === 0) {
+        div.innerHTML = "<p style='color:green; text-align:center;'>✅ Aucun retard signalé !</p>";
+        return;
+    }
+
+    // ✅ Affiche seulement les 5 premières si showAllAlerts = false
+    const alertsToShow = showAllAlerts ? alerts : alerts.slice(0, 5);
+
+    alertsToShow.forEach(a => {
+        div.innerHTML += `
+            <div class="alert">⚠️ ${a.nom} a encore ${a.restant} points et est en retard !</div>
+        `;
+    });
+
+    // ✅ Bouton "Afficher tout / Réduire"
+    if (alerts.length > 5) {
+        const btnText = showAllAlerts ? "⬆️ Réduire les alertes" : "⬇️ Afficher toutes les alertes";
+        div.innerHTML += `
+            <div style="text-align:center; margin-top:8px;">
+                <button onclick="toggleAlerts()">${btnText}</button>
+            </div>
+        `;
+    }
+}
+
+function toggleAlerts() {
+    showAllAlerts = !showAllAlerts;
+    checkAlerts(); // recharge la section avec le bon état
+}
+
+
+// Simulation mise à jour automatique
+/*setInterval(()=>{
+    rankingData.forEach(r=>{
+        if(r.effectue<r.total) r.effectue+=Math.random()<0.3?1:0;
+    });
+    renderRanking();
+},5000);*/
+
+
+setInterval(fetchRankingData, 420000); // recharge les données toutes les 7 minutes
+
+//renderRanking();
+
+//fetchRankingData();
+
+fetchRankingData().then(() => {
+    sortRanking('percent'); // ✅ Trie automatiquement par pourcentage à l'ouverture
+});
+
+
+//Les fonctions indicateur de chargement 
+
+function showLoader(text="Chargement des données..."){
+    const l=document.getElementById("loaderPro");
+    l.querySelector(".loader-text").textContent=text;
+    l.classList.remove("loader-hidden");
+    l.classList.add("loader-visible");
+}
+
+function hideLoader(){
+    const l=document.getElementById("loaderPro");
+    l.classList.remove("loader-visible");
+    l.classList.add("loader-hidden");
+}
+
+
+function toggleTable() {
+    showAll = !showAll; // inverse l’état (afficher tout / partiel)
+    renderRanking();    // recharge le tableau selon le nouvel état
+}
+
+
+//Fonction d'impression
+
+function printClassementPro(){
+
+    const d = new Date();
+
+    document.getElementById("printDate").innerHTML =
+        "Imprimé le : " +
+        d.toLocaleDateString() +
+        " à " +
+        d.toLocaleTimeString();
+
+    /* calcul totaux */
+    const totalReleveurs = rankingData.length;
+    const totalPoints = rankingData.reduce((a,r)=>a+r.total,0);
+    const totalEffectue = rankingData.reduce((a,r)=>a+r.effectue,0);
+
+    document.getElementById("printTotals").innerHTML =
+        "Releveurs : "+totalReleveurs+
+        " | Points : "+totalPoints+
+        " | Effectués : "+totalEffectue;
+
+    window.print();
+}
+
+</script>
+
+<div class="print-footer">
+    <div class="footer-left">
+        Société Nationale des Eaux
+    </div>
+
+    <div class="footer-right page-number"></div>
+</div>
+
+</body>
+</html>

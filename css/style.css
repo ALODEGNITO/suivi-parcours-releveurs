@@ -1,0 +1,133 @@
+    /* =============== RESET CSS =============== */
+    /* Enlève les marges, styles et incohérences entre navigateurs */
+    * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    }
+
+    /* Police lisible sur tous les écrans */
+    body {
+    font-family: "Segoe UI", Arial, sans-serif;
+    background-color: #f9f9f9;
+    color: #333;
+    line-height: 1.6;
+    }
+
+    /* Pour forcer le texte à bien s’adapter */
+    img, video {
+    max-width: 100%;
+    height: auto;
+    }
+
+    /* ================== LAYOUT ================== */
+    .container {
+    width: 90%;
+    max-width: 1200px;
+    margin: auto;
+    }
+
+    /* ================== NAVIGATION ================== */
+    nav {
+    background: #0059ff;
+    color: #fff;
+    padding: 10px;
+    }
+
+    nav ul {
+    display: flex;
+    flex-wrap: wrap;
+    list-style: none;
+    justify-content: center;
+    }
+
+    nav ul li {
+    margin: 0 10px;
+    }
+
+    nav ul li a {
+    color: white;
+    text-decoration: none;
+    font-weight: bold;
+    }
+
+    /* ================== TABLES ================== */
+    table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 20px 0;
+    font-size: 16px;
+    }
+
+    th, td {
+    padding: 10px;
+    border: 1px solid #ddd;
+    text-align: left;
+    }
+
+    /* ================== BOUTONS ================== */
+    button {
+    background-color: #0059ff;
+    color: white;
+    border: none;
+    padding: 10px 15px;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: 0.3s;
+    }
+
+    button:hover {
+    background-color: #003ebd;
+    }
+
+    /* ================== RESPONSIVE ================== */
+    @media (max-width: 768px) {
+    body {
+        font-size: 15px;
+    }
+
+    nav ul {
+        flex-direction: column;
+        align-items: center;
+    }
+
+    table, thead, tbody, th, td, tr {
+        display: block;
+    }
+
+    table tr {
+        margin-bottom: 10px;
+        border: 1px solid #ccc;
+        border-radius: 8px;
+        padding: 10px;
+    }
+
+    th {
+        background: #0059ff;
+        color: white;
+    }
+
+    td {
+        border: none;
+        padding-left: 40%;
+        position: relative;
+    }
+
+    td::before {
+        position: absolute;
+        left: 10px;
+        width: 35%;
+        white-space: nowrap;
+        font-weight: bold;
+        color: #333;
+    }
+    }
+
+    /* ================== FOOTER ================== */
+    footer {
+    text-align: center;
+    padding: 15px;
+    background: #222;
+    color: white;
+    margin-top: 20px;
+    }

@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Performance des agences</title>
+
+<script>
+    fetch("/favicon.html")
+    .then(res => res.text())
+    .then(html => document.head.innerHTML += html);
+</script>
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<!-- FONT AWESOME -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
+<!-- CHART JS -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+:root {
+    --primary:#2563eb;
+    --secondary:#1e40af;
+    --bg:#f5f7fa;
+    --card:#ffffff;
+    --success:#16a34a;
+    --warning:#f59e0b;
+    --danger:#dc2626;
+}
+
+body {
+    font-family: "Segoe UI", sans-serif;
+    background: var(--bg);
+    padding: 20px;
+}
+
+h2 {
+    text-align: center;
+    color: var(--primary);
+    margin-bottom: 20px;
+}
+
+.filters {
+    max-width: 400px;
+    margin: auto;
+    margin-bottom: 20px;
+}
+
+select {
+    width: 100%;
+    padding: 12px;
+    border-radius: 8px;
+    font-size: 16px;
+}
+
+/* TABLE */
+.table-wrapper {
+    background: var(--card);
+    border-radius: 12px;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.08);
+    overflow: hidden;
+    margin-bottom: 30px;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+thead {
+    background: linear-gradient(90deg,var(--primary),var(--secondary));
+    color: #fff;
+}
+
+th, td {
+    padding: 12px;
+    text-align: center;
+}
+
+tbody tr:hover {
+    background: #eff6ff;
+}
+
+/* PROGRESS */
+.progress {
+    background: #e5e7eb;
+    border-radius: 8px;
+    height: 14px;
+    overflow: hidden;
+    margin-top: 6px;
+}
+
+.bar {
+    height: 100%;
+}
+
+.green { background: var(--success); }
+.orange { background: var(--warning); }
+.red { background: var(--danger); }
+
+/* CHART */
+.chart-box {
+    background: var(--card);
+    padding: 20px;
+    border-radius: 12px;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.08);
+}
+
+/* BOUTONS */
+.btn {
+    padding: 10px 14px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    color: #fff;
+    font-weight: 600;
+}
+.btn-danger { background: var(--danger); }
+.btn-primary { background: var(--primary); }
+.btn-success { background: var(--success); }
+
+.top-actions {
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+</style>
+</head>
+
+<!-- code pour controler les inactivites -->
+<!-- <script src="js/logout.js"></script>-->
+
+<body>
+
+<h2><i class="fas fa-chart-bar"></i> Performance des agences</h2>
+
+<div class="top-actions">
+    <button class="btn btn-danger" onclick="history.back()">
+        <i class="fas fa-arrow-left"></i> Retour
+    </button>
+
+    <div>
+        <button class="btn btn-primary" onclick="exportPDF()">
+            <i class="fas fa-file-pdf"></i> PDF
+        </button>
+        <button class="btn btn-success" onclick="exportExcel()">
+            <i class="fas fa-file-excel"></i> Excel
+        </button>
+    </div>
+</div>
+
+<div class="filters">
+    <select id="departement">
+        <option value="">Sélectionner un département</option>
+        <option value="8">Département 8</option>
+    </select>
+</div>
+
+<div class="table-wrapper">
+<table>
+    <thead>
+        <tr>
+            <th>Agence</th>
+            <th>Total à relever</th>
+            <th>Total relevés</th>
+            <th>Performance</th>
+        </tr>
+    </thead>
+    <tbody id="tableBody"></tbody>
+</table>
+</div>
+
+<div class="chart-box">
+    <canvas id="agencyChart" height="120"></canvas>
+</div>
+
+<script>
+/* ===========================
+    DONNÉES PHYSIQUES (MOCK)
+   =========================== */
+
+const dataByDepartement = {
+    "8": [
+        { agence: "Agence Niamey", total: 1200, releves: 980 },
+        { agence: "Agence Téra", total: 900, releves: 650 },
+        { agence: "Agence Kouré", total: 700, releves: 520 },
+        { agence: "Agence Dosso", total: 1100, releves: 1040 }
+    ]
+};
+
+const tableBody = document.getElementById("tableBody");
+const departementSelect = document.getElementById("departement");
+const ctx = document.getElementById("agencyChart").getContext("2d");
+
+let chart;
+
+/* ===========================
+    RENDER TABLE + CHART
+   =========================== */
+
+function render(departement) {
+    tableBody.innerHTML = "";
+    if (!departement) return;
+
+    const rows = dataByDepartement[departement];
+    const labels = [];
+    const values = [];
+
+    rows.forEach(r => {
+        const pct = Math.round((r.releves / r.total) * 100);
+        const color = pct >= 80 ? "green" : pct >= 50 ? "orange" : "red";
+
+        labels.push(r.agence);
+        values.push(pct);
+
+        tableBody.innerHTML += `
+        <tr>
+            <td>${r.agence}</td>
+            <td>${r.total}</td>
+            <td>${r.releves}</td>
+            <td>
+                ${pct} %
+                <div class="progress">
+                    <div class="bar ${color}" style="width:${pct}%"></div>
+                </div>
+            </td>
+        </tr>`;
+    });
+
+    renderChart(labels, values);
+}
+
+/* ===========================
+    CHART
+   =========================== */
+
+function renderChart(labels, data) {
+    if (chart) chart.destroy();
+
+    chart = new Chart(ctx, {
+        type: "bar",
+        data: {
+            labels: labels,
+            datasets: [{
+                label: "Taux de performance (%)",
+                data: data,
+                backgroundColor: "#2563eb"
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    max: 100
+                }
+            }
+        }
+    });
+}
+
+/* ===========================
+    EVENT
+   =========================== */
+
+departementSelect.addEventListener("change", e => {
+    render(e.target.value);
+});
+
+function exportPDF(){
+    const {jsPDF}=window.jspdf;
+    const doc=new jsPDF();
+    doc.autoTable({html:'#dataTable'});
+    doc.save("statistiques.pdf");
+}
+
+function exportExcel(){
+    const wb=XLSX.utils.table_to_book(document.querySelector("#dataTable"));
+    XLSX.writeFile(wb,"statistiques.xlsx");
+}
+</script>
+
+</body>
+</html>

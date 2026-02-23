@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Points visités et indexés par agence et au niveau national</title>
+<!-- Favicon au format .ico -->
+<link rel="icon" href="images/favicongdor.ico" type="image/x-icon">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<!-- FONT AWESOME -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
+<!-- PDF & EXCEL -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.29/jspdf.plugin.autotable.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<style>
+:root {
+    --primary:#2563eb;
+    --secondary:#1e40af;
+    --bg:#f5f7fa;
+    --card:#ffffff;
+    --danger:#dc2626;
+    --success:#16a34a;
+    --warning:#f59e0b;
+}
+
+body {
+    font-family: "Segoe UI", sans-serif;
+    background: var(--bg);
+    padding: 20px;
+}
+
+h2 {
+    text-align: center;
+    color: var(--primary);
+    margin-bottom: 20px;
+}
+
+.btn {
+    padding: 10px 14px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    color: #fff;
+    font-weight: 600;
+}
+.btn-danger { background: var(--danger); }
+.btn-primary { background: var(--primary); }
+.btn-success { background: var(--success); }
+
+.top-actions {
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+.total-box {
+    background: var(--card);
+    padding: 15px;
+    border-left: 6px solid var(--primary);
+    font-size: 18px;
+    font-weight: bold;
+    border-radius: 10px;
+    margin-bottom: 15px;
+}
+
+.table-wrapper {
+    background: var(--card);
+    border-radius: 12px;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.08);
+    overflow: hidden;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+thead {
+    background: linear-gradient(90deg,var(--primary),var(--secondary));
+    color: #fff;
+}
+
+th, td {
+    padding: 12px;
+    text-align: center;
+}
+
+tbody tr:hover {
+    background: #eff6ff;
+}
+
+.progress {
+    background: #e5e7eb;
+    border-radius: 8px;
+    height: 14px;
+    overflow: hidden;
+}
+
+.progress-bar {
+    height: 100%;
+    transition: width 0.5s ease;
+}
+
+.green { background: var(--success); }
+.orange { background: var(--warning); }
+.red { background: var(--danger); }
+
+.pagination {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 15px;
+}
+
+.loader {
+    position: fixed;
+    inset: 0;
+    background: rgba(255,255,255,0.85);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    font-size: 40px;
+    color: var(--primary);
+    z-index: 999;
+}
+
+/* ===== TOP 3 ===== */
+.top3 {
+    background: var(--card);
+    padding: 20px;
+    border-radius: 12px;
+    margin-bottom: 20px;
+    box-shadow: 0 6px 15px rgba(0,0,0,0.08);
+}
+
+.top3 h3 {
+    text-align: center;
+    margin-bottom: 15px;
+    color: var(--primary);
+}
+
+.top3-container {
+    display: grid;
+    grid-template-columns: repeat(3,1fr);
+    gap: 15px;
+}
+
+.top-card {
+    text-align: center;
+    padding: 20px;
+    border-radius: 12px;
+    font-weight: bold;
+}
+
+.gold { background: linear-gradient(135deg,#facc15,#f59e0b); }
+.silver { background: linear-gradient(135deg,#e5e7eb,#9ca3af); }
+.bronze { background: linear-gradient(135deg,#fb923c,#f97316); }
+
+.top-card i {
+    font-size: 26px;
+    margin-bottom: 10px;
+}
+
+.top-card h4 {
+    font-size: 18px;
+}
+
+.top-card p {
+    font-size: 22px;
+    margin-top: 5px;
+}
+
+</style>
+</head>
+<!-- code pour controler les inactivites -->
+<!-- <script src="js/logout.js"></script>-->
+<body>
+
+<div class="loader" id="loader">
+    <i class="fas fa-spinner fa-spin"></i>
+</div>
+
+<h2><i class="fas fa-chart-line"></i> Points visités et indexés par agence et au niveau national</h2>
+
+<div class="top-actions">
+    <button class="btn btn-danger" onclick="history.back()">
+        <i class="fas fa-arrow-left"></i> Retour
+    </button>
+
+    <div>
+        <button class="btn btn-primary" onclick="exportPDF()">
+            <i class="fas fa-file-pdf"></i> PDF
+        </button>
+        <button class="btn btn-success" onclick="exportExcel()">
+            <i class="fas fa-file-excel"></i> Excel
+        </button>
+    </div>
+</div>
+
+<div class="total-box">
+    🌍Le Total relevés sur l’entièreté du pays :
+    <span id="total">0 / 0 (0%)</span>
+</div>
+
+<!-- ===== TOP 3 AGENCES ===== -->
+<div class="top3">
+    <h3><i class="fas fa-trophy"></i> TOP 3 des meilleures agences</h3>
+
+    <div class="top3-container">
+        <div class="top-card gold">
+            <i class="fas fa-crown"></i>
+            <h4 id="top1-name">---</h4>
+            <p id="top1-score">0%</p>
+        </div>
+
+        <div class="top-card silver">
+            <i class="fas fa-medal"></i>
+            <h4 id="top2-name">---</h4>
+            <p id="top2-score">0%</p>
+        </div>
+
+        <div class="top-card bronze">
+            <i class="fas fa-award"></i>
+            <h4 id="top3-name">---</h4>
+            <p id="top3-score">0%</p>
+        </div>
+    </div>
+</div>
+
+<div style="margin-bottom:15px;">
+    <input type="text" id="searchInput" placeholder="🔍 Rechercher une agence..."
+        style="width:100%;max-width:350px;padding:10px 14px;border-radius:8px;border:1px solid #ccc;font-size:15px;">
+</div>
+
+
+<div class="table-wrapper">
+<table id="dataTable">
+    <thead>
+        <tr>
+            <th>Nom Agence</th>
+            <th>Total à Relever</th>
+            <th>Total Relevés</th>
+            <th>Total Restant</th>
+            <th>Taux (%)</th>
+            <th>Performance</th>
+        </tr>
+    </thead>
+    <tbody id="tableBody"></tbody>
+</table>
+</div>
+
+<div class="pagination">
+    <span id="pageInfo"></span>
+    <div>
+        <button class="btn btn-primary" onclick="prevPage()">◀</button>
+        <button class="btn btn-primary" onclick="nextPage()">▶</button>
+    </div>
+</div>
+
+<script>
+const API = "http://41.138.61.43:8081/api/wseenrelecag";
+
+let data=[], page=1, pageSize=10;
+let filteredData = [];
+
+
+const body = document.getElementById("tableBody");
+const totalSpan = document.getElementById("total");
+const loader = document.getElementById("loader");
+
+const top1Name = document.getElementById("top1-name");
+const top1Score = document.getElementById("top1-score");
+const top2Name = document.getElementById("top2-name");
+const top2Score = document.getElementById("top2-score");
+const top3Name = document.getElementById("top3-name");
+const top3Score = document.getElementById("top3-score");
+
+
+async function loadData(){
+    loader.style.display="flex";
+    data = await fetch(API).then(r=>r.json());
+
+    // supprimer agences sans nom
+    data = data.filter(a => a.nomag && a.nomag.trim() !== "");
+
+    // copie pour recherche/pagination
+    filteredData = [...data];
+    loader.style.display="none";
+    render();
+}
+
+
+
+/*function render(){
+    body.innerHTML="";
+
+    let start=(page-1)*pageSize;
+    let rows = filteredData.slice(start, start + pageSize);
+
+
+    let totalReleve = data.reduce((s,a)=>s+(a.nbrerele||0),0);
+    let totalGlobal = data.reduce((s,a)=>s+(a.nbretotal||0),0);
+
+
+    rows.forEach(r=>{
+        let total = r.nbretotal || 0;
+        let releve = r.nbrerele || 0;
+        let restant = r.nbrerest || 0;
+
+        let taux = total ? Math.round((releve/total)*100) : 0;
+
+        let color = taux>=80?"green":taux>=50?"orange":"red";
+
+        body.innerHTML+=`
+        <tr>
+            <td>${r.nomag || "GLOBAL"}</td>
+            <td>${total}</td>
+            <td>${releve}</td>
+            <td>${restant}</td>
+            <td>${taux}%</td>
+            <td>
+                <div class="progress">
+                    <div class="progress-bar ${color}" style="width:${taux}%"></div>
+                </div>
+            </td>
+        </tr>`;
+    });
+
+    const tauxGlobal = totalGlobal ? Math.round((totalReleve/totalGlobal)*100) : 0;
+
+    totalSpan.textContent = `${totalReleve} / ${totalGlobal} (${tauxGlobal}%)`;
+    pageInfo.textContent = `Page ${page}`;
+    renderTop3()
+
+}*/
+
+
+function render(){
+
+    body.innerHTML="";
+
+    // Trier par ordre alphabétique du nom d'agence
+    filteredData.sort((a, b) => {
+        if (!a.nomag) return 1;
+        if (!b.nomag) return -1;
+        return a.nomag.localeCompare(b.nomag, 'fr', { sensitivity: 'base' });
+    });
+
+    let start=(page-1)*pageSize;
+    let rows = filteredData.slice(start, start + pageSize);
+
+    // ===== CALCULS GLOBAUX =====
+    let totalReleve = data.reduce((s,a)=>s+(a.nbrerele||0),0);
+    let totalGlobal = data.reduce((s,a)=>s+(a.nbretotal||0),0);
+    let totalRestant = data.reduce((s,a)=>s+(a.nbrerest||0),0);
+
+    let tauxGlobal = totalGlobal ? Math.round((totalReleve/totalGlobal)*100) : 0;
+    let colorGlobal = tauxGlobal>=80?"green":tauxGlobal>=50?"orange":"red";
+
+    // ===== LIGNES NORMALES =====
+    rows.forEach(r=>{
+
+        let total = r.nbretotal || 0;
+        let releve = r.nbrerele || 0;
+        let restant = r.nbrerest || 0;
+
+        let taux = total ? Math.round((releve/total)*100) : 0;
+        let color = taux>=80?"green":taux>=50?"orange":"red";
+
+        body.innerHTML+=`
+        <tr>
+            <td>${r.nomag}</td>
+            <td>${total}</td>
+            <td>${releve}</td>
+            <td>${restant}</td>
+            <td>${taux}%</td>
+            <td>
+                <div class="progress">
+                    <div class="progress-bar ${color}" style="width:${taux}%"></div>
+                </div>
+            </td>
+        </tr>`;
+    });
+
+    // ===== LIGNE TOTAL GLOBAL =====
+    body.innerHTML += `
+    <tr style="font-weight:bold;background:#eef2ff;border-top:2px solid #c7d2fe">
+        <td>Total général national</td>
+        <td>${totalGlobal}</td>
+        <td>${totalReleve}</td>
+        <td>${totalRestant}</td>
+        <td>${tauxGlobal}%</td>
+        <td>
+            <div class="progress">
+                <div class="progress-bar ${colorGlobal}" style="width:${tauxGlobal}%"></div>
+            </div>
+        </td>
+    </tr>`;
+
+    // ===== INFOS HAUT DE PAGE =====
+    totalSpan.textContent = `${totalReleve} / ${totalGlobal} (${tauxGlobal}%)`;
+    pageInfo.textContent = `Page ${page}`;
+
+    renderTop3();
+}
+
+function prevPage(){ if(page>1){page--;render();} }
+function nextPage(){ if(page*pageSize<filteredData.length)
+{page++;render();} }
+
+function exportPDF(){
+    const {jsPDF}=window.jspdf;
+    const doc=new jsPDF();
+    doc.autoTable({html:'#dataTable'});
+    doc.save("statistiques_agences.pdf");
+}
+
+
+function exportExcel(){
+    const wb=XLSX.utils.table_to_book(document.querySelector("#dataTable"));
+    XLSX.writeFile(wb,"statistiques_agences.xlsx");
+}
+
+document.getElementById("searchInput").addEventListener("input", function () {
+    const q = this.value.toLowerCase();
+
+    filteredData = data.filter(a =>
+        a.nomag && a.nomag.toLowerCase().includes(q)
+    );
+
+    page = 1;
+    render();
+});
+
+
+loadData();
+
+// Fontion Top3 par pourcentage
+
+/*function renderTop3(){
+
+    if(!data || data.length === 0){
+        top1Name.textContent = "---";
+        top2Name.textContent = "---";
+        top3Name.textContent = "---";
+        return;
+    }
+
+    let ranked = data
+        .filter(a => a && a.nomag && a.nbretotal > 0)
+        .map(a => ({
+            name: a.nomag,
+            taux: Math.round(((a.nbrerele || 0) / a.nbretotal) * 100)
+        }))
+        .sort((a,b) => b.taux - a.taux);
+
+    // Sécurisation affichage
+    top1Name.textContent  = ranked[0]?.name || "---";
+    top1Score.textContent = ranked[0]?.taux + "%" || "0%";
+
+    top2Name.textContent  = ranked[1]?.name || "---";
+    top2Score.textContent = ranked[1]?.taux + "%" || "0%";
+
+    top3Name.textContent  = ranked[2]?.name || "---";
+    top3Score.textContent = ranked[2]?.taux + "%" || "0%";
+}*/
+
+
+// Fontion Top3 par nombre relevés par agence
+function renderTop3(){
+
+    if(!data || data.length === 0){
+        top1Name.textContent = "---";
+        top2Name.textContent = "---";
+        top3Name.textContent = "---";
+        return;
+    }
+
+    // Trier par total relevés (nbrerele)
+    let ranked = data
+        .filter(a => a && a.nomag && a.nbretotal > 0)
+        .map(a => ({
+            name: a.nomag,
+            releves: a.nbrerele || 0,
+            taux: Math.round(((a.nbrerele || 0) / a.nbretotal) * 100) // utile pour afficher le %
+        }))
+        .sort((a,b) => b.releves - a.releves); // tri décroissant par nbrerele
+
+    // Sécurisation affichage
+    top1Name.textContent  = ranked[0]?.name || "---";
+    top1Score.textContent = ranked[0]?.releves + " relevés" || "0 relevés";
+
+    top2Name.textContent  = ranked[1]?.name || "---";
+    top2Score.textContent = ranked[1]?.releves + " relevés" || "0 relevés";
+
+    top3Name.textContent  = ranked[2]?.name || "---";
+    top3Score.textContent = ranked[2]?.releves + " relevés" || "0 relevés";
+
+
+}
+
+
+
+</script>
+
+</body>
+</html>

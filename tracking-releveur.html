@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tracking Releveur</title>
+
+<!-- Favicon au format .ico -->
+<link rel="icon" href="images/favicongdor.ico" type="image/x-icon">
+
+<!-- Leaflet CSS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet.heat/dist/leaflet-heat.css" />
+
+<style>
+body { margin:0; font-family: Arial, sans-serif; background:#f5f6fa; }
+#controls { padding:10px; background:#fff; border-bottom:1px solid #ddd; display:flex; gap:8px; align-items:center; flex-wrap: wrap; }
+#releveurSelect { padding:8px; }
+#map { width:100%; height:80vh; margin-top:10px; }
+button { padding:8px 12px; background:#007bff; color:#fff; border:none; border-radius:4px; cursor:pointer; }
+button:hover { background:#0056b3; }
+#dashboard { display:flex; gap:15px; padding:10px; background:#fff; border-bottom:1px solid #ddd; }
+.card { padding:10px; border-radius:8px; background:#fff; box-shadow:0 2px 5px rgba(0,0,0,.1); text-align:center; flex:1; }
+.card h3 { margin:0; font-size:14px; color:#666; }
+.card p { margin:8px 0 0; font-size:18px; font-weight:bold; color:#222; }
+#loader { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(255,255,255,0.8); z-index:9999; justify-content:center; align-items:center; flex-direction:column; font-size:20px; color:#007bff; }
+.spinner { border:6px solid #f3f3f3; border-top:6px solid #007bff; border-radius:50%; width:60px; height:60px; animation:spin 1s linear infinite; margin-bottom:15px; }
+#titre{ text-align: center; color:#007bff }
+@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+</style>
+</head>
+
+<!-- code pour controler les inactivites -->
+<!-- <script src="js/logout.js"></script>-->
+
+<body>
+<h2 id="titre">Suivre la Position d'un Releveur en Temps Réel</h2>
+<div id="loader">
+    <div class="spinner"></div>
+    ⏳ tracking-releveur...
+</div>
+
+<div id="controls">
+    <select id="releveurSelect">
+        <option value="">-- Sélectionner un releveur --</option>
+    </select>
+    <input type="text" id="matriculeInput" placeholder="Entrer matricule" style="padding:8px;"/>
+    <button onclick="startTracking()">Suivre</button>
+    <button onclick="joindreReleveur()">Voir l’itinéraire vers le releveur</button>
+    <button onclick="window.location.href='accueil.html'" style="background-color:#b91c1c;">Retour</button>
+</div>
+
+
+<div id="dashboard">
+    <div class="card"><h3>Points suivis</h3><p id="pointsSuivis">0</p></div>
+    <!-- <div class="card"><h3>Distance parcourue</h3><p id="distanceParcourue">0 km</p></div>-->
+</div>
+
+<div id="map"></div>
+
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.heat/dist/leaflet-heat.js"></script>
+
+<script>
+// Icône personnalisée
+const pinIcon = L.icon({
+    iconUrl: 'images/location-maker-track.gif',
+    iconSize: [50, 65],       // ✅ Taille agrandie
+    iconAnchor: [25, 65],     // ✅ Point d'ancrage centré
+    popupAnchor: [0, -60]     // ✅ Ajusté pour bien placer le popup
+});
+
+
+let map = L.map('map').setView([6.3703,2.3912], 12);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{ attribution:'&copy; OpenStreetMap contributors' }).addTo(map);
+
+let markersLayer = L.layerGroup().addTo(map);
+let polyline = null;
+let heatLayer = null;
+let currentCoords = [];
+
+let lastReleveurPos = null;
+
+let userMarker = null;
+let joinLine = null;
+
+
+
+// Charger les releveurs
+async function loadReleveurs(){
+    try{
+        const resp = await fetch("http://41.138.61.43:8082/api/wseentrele");
+        const data = await resp.json();
+        const select = document.getElementById("releveurSelect");
+        select.innerHTML = '<option value="">-- Sélectionner un releveur --</option>';
+        data.forEach(r=>{
+            if(r.matrire){
+                const opt = document.createElement("option");
+                opt.value = r.matrire;
+                opt.textContent = r.matrire + (r.nomprre ? " - " + r.nomprre : "");
+                select.appendChild(opt);
+            }
+        });
+    } catch(e){ console.error("Erreur chargement releveurs", e); }
+}
+loadReleveurs();
+
+// Tracker un releveur
+async function startTracking(){
+    let matricule = document.getElementById("releveurSelect").value;
+    const inputMatricule = document.getElementById("matriculeInput").value.trim();
+    if(inputMatricule) matricule = inputMatricule; // priorité au matricule saisi
+    if(!matricule){ alert("Choisissez ou saisissez un matricule"); return; }
+
+    showLoader();
+    markersLayer.clearLayers();
+    currentCoords = [];
+    if(polyline){ map.removeLayer(polyline); polyline=null; }
+    if(heatLayer){ map.removeLayer(heatLayer); heatLayer=null; }
+
+    try{
+        // Récupération des coordonnées du releveur
+        const resp = await fetch(`http://41.138.61.43:8081/api/wseentrelec/${matricule}`);
+        const data = await resp.json();
+        if(!data || !data.length){ alert("Aucune donnée trouvée"); hideLoader(); return; }
+
+        // Trier et garder le dernier point pour chaque date/heure
+        data.sort((a,b)=> (parseInt(a.ordrrp)||0) - (parseInt(b.ordrrp)||0));
+        const seen = new Map();
+        data.forEach(item=>{
+            const key = item.dateheure; // date+heure unique
+            seen.set(key, item);
+        });
+        const filteredData = Array.from(seen.values());
+
+        const latlngs = [];
+        let totalDistance=0, prev=null;
+        filteredData.forEach(item=>{
+            const lat=parseFloat(item.gpsxrp), lng=parseFloat(item.gpsyrp);
+            if(isNaN(lat)||isNaN(lng)) return;
+            const ll=[lat,lng];
+            latlngs.push(ll);
+            currentCoords.push(ll);
+            prev=ll;
+        });
+
+        // Récupérer les infos détaillées du releveur pour le popup
+        const respInfo = await fetch(`http://41.138.61.43:8081/api/wseentrelec`);
+        const allReleveurs = await respInfo.json();
+        const info = allReleveurs.find(r => r.matriaa === matricule);
+
+        if(latlngs.length){
+            const last = latlngs[latlngs.length-1];
+            lastReleveurPos = last; // ✅ mémorise la dernière position du releveur
+            let popupContent = "";
+            if(info){
+                popupContent = `
+                    <b>Matricule:</b> ${info.matriaa}<br>
+                    <b>Nom:</b> ${info.nomaa}<br>
+                    <b>Total à relever:</b> ${info.nbretotal}<br>
+                    <b>Déjà relevé:</b> ${info.nbrerele}<br>
+                    <b>Restant:</b> ${info.nbrerest}
+                `;
+            } else {
+                popupContent = "Informations indisponibles";
+            }
+            L.marker(last, {icon: pinIcon}).bindPopup(popupContent).addTo(markersLayer);
+            map.setView(last, 16);
+        }
+
+        document.getElementById("pointsSuivis").innerText = latlngs.length;
+        //document.getElementById("distanceParcourue").innerText = totalDistance.toFixed(2)+" km";
+
+    } catch(e){ console.error(e); alert("Erreur API"); }
+    finally{ hideLoader(); }
+
+    
+}
+
+
+
+function calcDistance(lat1,lon1,lat2,lon2){
+    const R=6371,dLat=(lat2-lat1)*Math.PI/180,dLon=(lon2-lon1)*Math.PI/180;
+    const a=Math.sin(dLat/2)**2+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
+    return R*(2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a)));
+}
+
+function showLoader(){ document.getElementById("loader").style.display="flex"; }
+function hideLoader(){ document.getElementById("loader").style.display="none"; }
+
+
+async function joindreReleveur(){
+    let matricule = document.getElementById("releveurSelect").value;
+    const inputMatricule = document.getElementById("matriculeInput").value.trim();
+    if(inputMatricule) matricule = inputMatricule;
+    if(!matricule){ alert("Choisissez ou saisissez un matricule"); return; }
+
+    // 👇 Vérifie si la dernière position est connue
+    if(!lastReleveurPos){ 
+        await startTracking(); // ⚡ recharge les données du releveur
+    }
+
+    if(!lastReleveurPos){ 
+        alert("Impossible de récupérer la position du releveur.");
+        return;
+    }
+
+    if(!navigator.geolocation){
+        alert("La géolocalisation n'est pas supportée par ce navigateur.");
+        return;
+    }
+
+    showLoader();
+    navigator.geolocation.getCurrentPosition(
+        pos=>{
+            const userLat = pos.coords.latitude;
+            const userLng = pos.coords.longitude;
+
+            // 🧹 Supprimer les anciens marqueurs ou lignes avant d’ajouter les nouveaux
+            if(userMarker){ map.removeLayer(userMarker); }
+            if(joinLine){ map.removeLayer(joinLine); }
+
+            // 🧭 Créer un nouveau marqueur utilisateur
+            userMarker = L.marker([userLat, userLng], {title: "Votre position"}).addTo(map)
+                .bindPopup("<b>Votre position actuelle</b>").openPopup();
+
+            // 🔴 Tracer la ligne vers le releveur
+            joinLine = L.polyline([[userLat, userLng], lastReleveurPos], {color:"red", dashArray:"5,10"}).addTo(map);
+            map.fitBounds(joinLine.getBounds());
+
+            const distKm = calcDistance(userLat, userLng, lastReleveurPos[0], lastReleveurPos[1]);
+            alert(`Distance jusqu'au releveur : ${distKm.toFixed(2)} km`);
+
+            hideLoader();
+        },
+        err=>{
+            hideLoader();
+            alert("Impossible de récupérer votre position : " + err.message);
+        }
+    );
+}
+
+
+</script>
+</body>
+</html>

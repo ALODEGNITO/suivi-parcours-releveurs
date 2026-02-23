@@ -1,0 +1,976 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+
+<!-- code responsive -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<title>Parcours Releveur</title>
+
+<!-- Style global -->
+<link rel="stylesheet" href="css/style.css">
+
+        <script>
+            fetch("/favicon.html")
+            .then(res => res.text())
+            .then(html => {
+                document.head.innerHTML += html;
+            });
+        </script>
+<title>Admin Map - Releveurs (Leaflet + Dashboard + Zones + Heatmap + Météo + Suivi Avancé)</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet.heat/dist/leaflet-heat.css" />
+<style>
+    body { margin:0; font-family: Arial, sans-serif; background:#f5f6fa; }
+    #controls { padding:10px; background:#fff; border-bottom:1px solid #ddd; display:flex; gap:8px; align-items:center; flex-wrap: wrap; }
+    #matricule, #releveurSelect { padding:8px; }
+    #map { width:100%; height:60vh; margin-top:10px; }
+    button { padding:8px 12px; background:#007bff; color:#fff; border:none; border-radius:4px; cursor:pointer; }
+    button:hover { background:#0056b3; }
+    .legend { padding:8px; background:#fff; border-radius:4px; box-shadow:0 1px 4px rgba(0,0,0,.2); }
+    .logout-btn { background: #dc3545; } .logout-btn:hover { background: #a71d2a; }
+    .export-btn { background: #28a745; } .export-btn:hover { background: #1e7e34; }
+    .rank-btn { background: #ffc107; color:#000; } .rank-btn:hover { background: #e0a800; }
+    #userInfo { font-weight:bold; color:#007bff; margin-left:auto; }
+    #dashboard { display: grid; grid-template-columns: repeat(auto-fit,minmax(200px,1fr)); gap: 15px; padding:15px; background:#fff; border-bottom:1px solid #ddd; }
+    .card { padding:15px; border-radius:8px; background:#fff; box-shadow:0 2px 5px rgba(0,0,0,.1); text-align:center; }
+    .card h3 { margin:0; font-size:14px; color:#666; }
+    .card p { margin:8px 0 0; font-size:20px; font-weight:bold; color:#222; }
+    #extras { display:grid; grid-template-columns: 2fr 1fr; gap:15px; padding:15px; background:#fff; border-top:1px solid #ddd; }
+    #heatmapContainer, #weatherContainer { padding:15px; border-radius:8px; background:#fff; box-shadow:0 2px 5px rgba(0,0,0,.1); }
+    #heatmapContainer h3, #weatherContainer h3 { margin:0 0 10px; font-size:16px; color:#007bff; }
+    #weatherDetails { font-size:14px; line-height:1.4; }
+    .modal { display:none; position:fixed; z-index:9999; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.5); }
+    .modal-content { background:#fff; margin:10% auto; padding:20px; border-radius:8px; width:90%; max-width:600px; box-shadow:0 4px 10px rgba(0,0,0,0.3); }
+    .modal h2 { margin-top:0; color:#007bff; text-align:center; }
+    .close { color:#aaa; float:right; font-size:24px; font-weight:bold; cursor:pointer; } .close:hover { color:#000; }
+    table { width:100%; border-collapse:collapse; margin-top:15px; }
+    th, td { border:1px solid #ddd; padding:8px; text-align:center; }
+    th { background:#007bff; color:#fff; }
+    tr:nth-child(even) { background:#f9f9f9; }
+    .checkin-btn { background:#17a2b8; } .checkin-btn:hover { background:#117a8b; }
+    #titre{ text-align: center; color:#007bff }
+
+   /* ===== LOADER PRO MODERNE ===== */
+
+#loaderPro{
+    position:fixed;
+    top:330px;
+    left:50%;
+    transform:translateX(-50%);
+    z-index:9999;
+    transition:opacity .3s ease, transform .3s ease;
+    pointer-events:none; /* IMPORTANT: page reste cliquable */
+}
+
+.loader-hidden{
+    opacity:0;
+    transform:translate(-50%,-15px);
+}
+
+.loader-visible{
+    opacity:1;
+    transform:translate(-50%,0);
+}
+
+.loader-box{
+    background:white;
+    padding:14px 18px;
+    border-radius:14px;
+    box-shadow:0 6px 25px rgba(0,0,0,0.15);
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:8px;
+    min-width:220px;
+    font-family:Arial,sans-serif;
+}
+
+/* spinner moderne */
+.spinner-pro{
+    width:28px;
+    height:28px;
+    border:3px solid #e6e6e6;
+    border-top:3px solid #007bff;
+    border-radius:50%;
+    animation:spinPro .8s linear infinite;
+}
+
+@keyframes spinPro{
+    to{ transform:rotate(360deg); }
+}
+
+/* texte */
+.loader-text{
+    font-size:14px;
+    color:#333;
+}
+
+/* barre */
+.progress-bar{
+    width:100%;
+    height:4px;
+    background:#eee;
+    border-radius:4px;
+    overflow:hidden;
+}
+
+.progress{
+    width:40%;
+    height:100%;
+    background:#007bff;
+    animation:progressMove 1.2s infinite ease-in-out;
+}
+
+@keyframes progressMove{
+    0%{ transform:translateX(-100%); }
+    50%{ transform:translateX(120%); }
+    100%{ transform:translateX(250%); }
+}
+
+/* Representation des couleurs*/
+#mapLegend {
+    margin-top: 10px;
+    padding: 10px;
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 10px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+    width: fit-content;
+    font-size: 14px;
+}
+
+#mapLegend h4 {
+    margin: 0 0 6px 0;
+    font-weight: bold;
+    color: #333;
+    text-align: left;
+}
+
+#mapLegend ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+#mapLegend li {
+    display: flex;
+    align-items: center;
+    margin-bottom: 6px;
+    color: #333;
+}
+
+.color-box {
+    width: 20px;
+    height: 20px;
+    border: 1px solid #999;
+    margin-right: 8px;
+    border-radius: 4px;
+}
+
+
+/* Style de la légende de la carte */
+.legend {
+    position: absolute;
+    bottom: 15px;
+    right: 15px;
+    background: white;
+    padding: 10px 14px;
+    border-radius: 8px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+    font-size: 14px;
+    line-height: 20px;
+    z-index: 1000;
+}
+.legend .item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 5px;
+}
+.legend .color-box {
+    width: 20px;
+    height: 4px;
+    border-radius: 2px;
+}
+.legend .arrow {
+    display: inline-block;
+    transform: rotate(0deg);
+    color: blue;
+    font-weight: bold;
+    font-size: 16px;
+}
+
+.arrow-icon {
+    font-size: 16px;
+    color: red;
+    font-weight: bold;
+}
+
+
+#infoReleveur {
+    font-size: 16px;
+    line-height: 1.6;
+    color: #007bff;
+}
+
+
+</style>
+
+<!-- jsPDF + autoTable -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+</head>
+
+<!-- code pour controler les inactivites -->
+<!-- <script src="js/logout.js"></script>-->
+
+
+<body>
+<!-- ===== LOADER PRO ===== -->
+<div id="loaderPro" class="loader-hidden">
+    <div class="loader-box">
+        <div class="spinner-pro"></div>
+        <div class="loader-text">Chargement des données...</div>
+        <div class="progress-bar">
+            <div class="progress"></div>
+        </div>
+    </div>
+</div>
+
+<h2 id="titre">Carte de Suivi des Points à Visiter (Performance du releveur)</h2>  
+<div id="controls">
+    <input id="matricule" type="text" maxlength="4" placeholder="Matricule (4 chiffres)" />
+    <button id="btnAfficher">Afficher</button>
+
+    <!-- Combo releveur (matricule + nom affichés) -->
+    <select id="releveurSelect">
+        <option value="">-- Sélectionner un releveur --</option>
+    </select>
+
+    <button class="export-btn" onclick="exportCSV()">Exporter CSV</button>
+    <button class="export-btn" onclick="exportPDF()">Exporter PDF</button>
+    <!-- <button class="rank-btn" onclick="openRanking()">Classement</button>-->
+    <button class="rank-btn" onclick="window.location.href='classement.html'">Classement</button>
+    <button class="checkin-btn" onclick="checkIn()">Check-in</button>
+    <button class="checkin-btn" onclick="checkOut()">Check-out</button>
+    <button class="logout-btn" onclick="logout()">Déconnexion</button>
+    <button class="rank-btn" onclick="window.location.href='accueil.html'" style="background-color:#b91c1c;color:#FFFFFF">
+    Retour</button>
+    <div class="legend" id="infoMsg">Entrez un matricule ou choisissez un releveur</div>
+    <div id="userInfo"></div>
+</div>
+
+<!-- Dashboard -->
+<div id="dashboard">
+    <div class="card"><h3>Parcours à effectuer</h3><p id="parcoursEffectues">0</p></div>
+    <div class="card"><h3>Parcours en attente</h3><p id="parcoursAttente">0</p></div>
+    <div class="card"><h3>Distance parcourue</h3><p id="distanceParcourue">0 km</p></div>
+    <div class="card"><h3>Taux de couverture</h3><p id="tauxCouverture">0%</p></div>
+    <div class="card"><h3>Temps de tournée</h3><p id="tempsTournee">0h 00m</p></div>
+    <div class="card"><h3>Status Agent</h3><p id="statusAgent">⏳ Inactif</p></div>
+    <div class="card">
+    <h3>📌 Infos Releveur</h3>
+    <p id="infoReleveur">
+        Matricule : -- <br>
+        Points indexés : 0
+    </p></div>
+</div>
+
+<div id="map"></div>
+
+<!-- Heatmap + Météo -->
+<div id="extras">
+    <div id="heatmapContainer">
+        <h3>🔥 Carte Thermique</h3>
+        <button onclick="toggleHeatmap()">Afficher / Masquer Heatmap</button>
+
+    <!-- Légende des couleurs -->
+    <div id="mapLegend">
+    <h4>🗺️ Représentation des couleurs</h4>
+    <ul>
+        <li><span class="color-box" style="background:#FF0000;"></span> Zone fortement visitée</li>
+        <li><span class="color-box" style="background:#FFA500;"></span> Zone moyennement visitée</li>
+        <li><span class="color-box" style="background:#00FF00;"></span> Zone peu visitée</li>
+        <li><span class="color-box" style="background:#FFFFFF; border:1px solid #ccc;"></span> Zone jamais visitée</li>
+    </ul>
+    </div>
+    </div>
+
+    <div id="weatherContainer">
+        <h3>🌦️ Météo Actuelle</h3>
+        <div id="weatherDetails">Chargement météo...</div>
+    </div>
+
+</div>
+
+<!-- Fenêtre modale Classement -->
+<div id="rankingModal" class="modal">
+<div class="modal-content">
+    <span class="close" onclick="closeRanking()">&times;</span>
+    <h2>🏆 Classement des Releveurs</h2>
+    <table>
+    <thead><tr><th>Position</th><th>Nom Releveur</th><th>Clients Couverts</th><th>Respect Délais</th></tr></thead>
+    <tbody id="rankingTable"></tbody>
+    </table>
+</div>
+</div>
+
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.heat/dist/leaflet-heat.js"></script>
+
+<script>
+// -----------------------------
+// SESSION
+// -----------------------------
+const matriculeSession = localStorage.getItem("sessionReleveur");
+const nomSession = localStorage.getItem("sessionNom");
+if (!matriculeSession || !nomSession) {
+    // redirige vers login si pas connecté
+    window.location.href = "login.html";
+} else {
+    document.getElementById("userInfo").innerText = `👤 ${nomSession}`;
+}
+
+// -----------------------------
+// CARTE & LAYERS
+// -----------------------------
+/*const map = L.map('map').setView([6.3703,2.3912],12);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+    attribution:'&copy; OpenStreetMap contributors'
+}).addTo(map);*/
+
+//28.09.2025
+let map = L.map('map'); // on initialise sans setView
+
+// Charger le fond de carte
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution:'&copy; OpenStreetMap contributors'
+}).addTo(map);
+
+// ✅ Essayer de centrer sur la position GPS de l’utilisateur
+if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(
+        pos => {
+            const lat = pos.coords.latitude;
+            const lon = pos.coords.longitude;
+            map.setView([lat, lon], 13); // zoom sur la position réelle
+            L.marker([lat, lon]).addTo(map).bindPopup("📍 Vous êtes ici").openPopup();
+        },
+        err => {
+            console.warn("Impossible d’obtenir la position GPS:", err.message);
+            // fallback → Cotonou si GPS refusé
+            map.setView([6.3703, 2.3912], 12);
+        },
+        { enableHighAccuracy: true }
+    );
+} else {
+    // si le navigateur ne supporte pas la géolocalisation
+    map.setView([6.3703, 2.3912], 12);
+}
+//28.09.2025
+
+//26.06.2025
+// Restaurer l'état sauvegardé si disponible
+//window.onload = restoreMapState;
+//26.06.2025
+
+let markersLayer = L.layerGroup().addTo(map);
+let currentCoords = []; // tableau d'objets: {point, matricule, ref, client, lat, lng}
+let polyline = null;
+let heatLayer = null;
+
+// zones
+const zones = [
+    {name:"Zone A", coords:[[6.38,2.36],[6.38,2.42],[6.34,2.42],[6.34,2.36]]},
+    {name:"Zone B", coords:[[6.40,2.36],[6.40,2.42],[6.38,2.42],[6.38,2.36]]}
+];
+zones.forEach(z=>{
+    L.polygon(z.coords,{color:"green",weight:2,fillOpacity:0.05}).addTo(map).bindPopup(z.name);
+});
+
+// -----------------------------
+// GAMIFICATION / CLASSEMENT
+// -----------------------------
+const rankingData = [
+    { nom:"Jean Dupont", clients:120, delais:"95%" },
+    { nom:"Aminata Koné", clients:110, delais:"92%" },
+    { nom:"Carlos Gomez", clients:98, delais:"90%" },
+    { nom:"Fatou Diallo", clients:85, delais:"87%" },
+    { nom:"David Smith", clients:70, delais:"80%" }
+];
+
+function openRanking(){
+    const tbody = document.getElementById("rankingTable");
+    tbody.innerHTML = "";
+    rankingData.sort((a,b) => b.clients - a.clients);
+    rankingData.forEach((r,i)=>{
+        tbody.innerHTML += `
+            <tr>
+                <td>🏅 ${i+1}</td>
+                <td>${r.nom}</td>
+                <td>${r.clients}</td>
+                <td>${r.delais}</td>
+            </tr>
+        `;
+    });
+    document.getElementById("rankingModal").style.display = "block";
+}
+function closeRanking(){ document.getElementById("rankingModal").style.display="none"; }
+
+// -----------------------------
+// UTILITAIRES
+// -----------------------------
+function clearMap(){
+    markersLayer.clearLayers();
+    if(polyline){ map.removeLayer(polyline); polyline=null; }
+    currentCoords = [];
+    if(heatLayer){ map.removeLayer(heatLayer); heatLayer=null; }
+}
+
+
+function saveMapState(matricule, coords) {
+    const state = { matricule, coords };
+    localStorage.setItem("mapState", JSON.stringify(state));
+}
+
+
+function calcDistance(lat1,lon1,lat2,lon2){
+    const R=6371, dLat=(lat2-lat1)*Math.PI/180, dLon=(lon2-lon1)*Math.PI/180;
+    const a=Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
+    return R*(2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a)));
+}
+
+function pointInPolygon(point, vs){
+    const x=point[0], y=point[1];
+    let inside=false;
+    for(let i=0,j=vs.length-1;i<vs.length;j=i++){
+        const xi=vs[i][0], yi=vs[i][1], xj=vs[j][0], yj=vs[j][1];
+        const intersect = ((yi>y)!==(yj>y)) && (x<(xj-xi)*(y-yi)/(yj-yi)+xi);
+        if(intersect) inside=!inside;
+    }
+    return inside;
+}
+
+// -----------------------------
+// CHARGEMENT RELEVEURS DANS LE COMBO
+// -----------------------------
+async function loadReleveurs(){
+    try {
+        const resp = await fetch("http://41.138.61.43:8082/api/wseentrele");
+        const data = await resp.json();
+        const select = document.getElementById("releveurSelect");
+        // vide le select sauf la première option
+        select.innerHTML = '<option value="">-- Sélectionner un releveur --</option>';
+        data.forEach(r=>{
+            if(r.matrire){
+                const opt = document.createElement("option");
+                // valeur = matricule (matrire). affichage = matricule + nomprre (si présent).
+                opt.value = r.matrire;
+                opt.textContent = r.matrire + (r.nomprre ? " - " + r.nomprre : "");
+                select.appendChild(opt);
+            }
+        });
+    } catch(e){
+        console.error("Erreur chargement releveurs", e);
+    }
+}
+loadReleveurs();
+
+document.getElementById("releveurSelect").addEventListener("change", e=>{
+    const val = e.target.value;
+    if(val) {
+        document.getElementById("matricule").value = val;
+        afficherReleveur();
+    }
+});
+
+// -----------------------------
+// AFFICHAGE RELEVEUR (PAR CODE)
+// -----------------------------
+async function afficherReleveur() {
+    const matricule = (document.getElementById('matricule').value || '').trim();
+    if (!/^[0-9]{4}$/.test(matricule)) {
+        alert('Veuillez entrer un code de tournée à 4 chiffres.');
+        return;
+    }
+
+    // afficher le loader
+    showLoader("Chargement tournée...");
+
+    clearMap();
+    const apiUrl = `http://41.138.61.43:8082/api/wseenttrp/${matricule}`;
+    try {
+        const response = await fetch(apiUrl);
+        if (!response.ok) throw new Error("Erreur API " + response.status);
+        const data = await response.json();
+        if (!data || !data.length) {
+            alert("Aucune donnée trouvée");
+            updateDashboard(0, 0, 0, 0, { h: 0, m: 0 });
+            return;
+        }
+
+        const latlngs = [];
+        let totalDistance = 0;
+        let prevLatLng = null;
+        currentCoords = [];
+
+        // Trier les données par numéro d’ordre (ordrrp)
+        data.sort((a, b) => (a.ordrrp || 0) - (b.ordrrp || 0));
+
+        // Parcourir les données triées
+        data.forEach((item) => {
+            const lat = parseFloat(item.gpsxrp);
+            const lng = parseFloat(item.gpsyrp);
+            if (isNaN(lat) || isNaN(lng) || (lat === 0 && lng === 0)) return;
+
+            const ordre = item.ordrrp || 0;
+            const ref = item.referp || "N/A";
+            const nom = item.nomurp || "N/A";
+            const ll = [lat, lng];
+            latlngs.push(ll);
+
+            currentCoords.push({
+                ordre: ordre,
+                matricule: matricule,
+                ref: ref,
+                client: nom,
+                lat: lat,
+                lng: lng,
+                numCompteur: item.numcrp,
+                borcrp: item.borcrp,
+                borbrp: item.borbrp,
+                ancienIndex: item.aindrp,
+                nouvelIndex: item.indsrp,
+                anomalie: item.anomrp,
+                note: item.noterp,
+                dateReleve: item.daterp,
+                heureReleve: item.heurrp,
+                periode: item.perirp
+            });
+
+            const popupHtml = `
+                <b>N° ordre ${ordre}</b><br/>
+                📌 Référence: ${ref}<br/>
+                👤 Abonné: ${nom}<br/>
+                🔢 Matricule: ${matricule}<br/>
+                🌍 Lat: ${lat}, Lng: ${lng}<br/>
+                🔢 <b>Num Compteur :</b> ${item.numcrp}<br/>
+                🔷 <b>Borcrp :</b> ${item.borcrp}<br/>
+                📄 <b>Bordereau :</b> ${item.borbrp}<br/>
+                🔄 <b>Ordre :</b> ${item.ordrrp}<br/>
+                📟 <b>Ancien index :</b> ${item.aindrp}<br/>
+                🆕 <b>Nouvel index :</b> ${item.indsrp}<br/>
+                📝 <b>Note :</b> ${item.noterp}<br/>
+                📅 <b>Date du relevé :</b> ${item.daterp}<br/>
+                🕒 <b>Heure du relevé :</b> ${item.heurrp}<br/>
+                🔄 <b>Période :</b> ${item.perirp}
+            `;
+
+            const marker = L.marker(ll)
+                .bindPopup(popupHtml)
+                .bindTooltip(String(ordre), { permanent: true, direction: 'right' });
+            markersLayer.addLayer(marker);
+
+            // Calcul distance cumulée
+            if (prevLatLng) {
+                totalDistance += calcDistance(prevLatLng[0], prevLatLng[1], lat, lng);
+            }
+            prevLatLng = ll;
+        });
+
+        // Tracé du parcours sur la carte
+        if (latlngs.length) {
+            polyline = L.polyline(latlngs, { color: 'blue', weight: 3 }).addTo(map);
+            map.fitBounds(L.latLngBounds(latlngs).pad(0.2));
+            document.getElementById('infoMsg').innerText = `Matricule: ${matricule} — ${latlngs.length} points`;
+
+            // Ajouter des flèches le long de la polyline
+            for (let i = 0; i < latlngs.length - 1; i++) {
+                const p2 = latlngs[i + 1];
+                L.marker(p2, {
+                    icon: L.divIcon({
+                        className: 'arrow-icon',
+                       // html: '➡',
+                        html: '➤',
+                        iconSize: [20, 20],
+                        iconAnchor: [10, 10]
+                    })
+                }).addTo(map);
+            }
+        } else {
+            document.getElementById('infoMsg').innerText = `Aucune coordonnée valide pour ${matricule}`;
+        }
+
+        // ------------------
+        // Calcul du taux de couverture
+        // ------------------
+        let taux = 0;
+        try {
+            const statUrl = `http://41.138.61.43:8081/api/wseentrelec`;
+            const statResponse = await fetch(statUrl);
+            if (!statResponse.ok) throw new Error("Erreur API statistiques " + statResponse.status);
+            const stats = await statResponse.json();
+
+            if (Array.isArray(stats)) {
+                const mat = matricule.toString().trim();
+                const releveur = stats.find(r => {
+                    const m = (r.matrire || r.matriaa || "").toString().trim();
+                    return m === mat;
+                });
+
+                if (releveur) {
+                    const totalPointsGlobal = parseInt(releveur.nbretotal) || 0;
+                    const pointsEffectues = parseInt(releveur.nbrerele) || 0;
+
+                    if (totalPointsGlobal > 0) {
+                        taux = (pointsEffectues / totalPointsGlobal) * 100;
+                    }
+
+                    document.getElementById("tauxCouverture").innerText = taux.toFixed(1) + "%";
+                    console.log(`✅ Matricule ${mat} trouvé :`, releveur);
+                } else {
+                    document.getElementById("tauxCouverture").innerText = "N/A";
+                }
+            } else {
+                document.getElementById("tauxCouverture").innerText = "N/A";
+            }
+        } catch (error) {
+            console.error("Erreur lors du calcul du taux de couverture :", error);
+            document.getElementById("tauxCouverture").innerText = "N/A";
+        }
+
+        // Temps estimé
+        const vitesseMoy = 5;
+        const heures = totalDistance / vitesseMoy;
+        const tempsMinutes = Math.round(heures * 60);
+
+        updateDashboard(latlngs.length, 0, totalDistance, taux, {
+            h: Math.floor(tempsMinutes / 60),
+            m: tempsMinutes % 60
+        });
+
+        //======20.01.2026=========
+        // 🔹 Mise à jour du cadre "Infos Releveur"
+        document.getElementById("infoReleveur").innerHTML = `
+            Matricule : <b>${matricule}</b><br>
+            Points à indexer : <b>${latlngs.length}</b>
+        `;
+        //======20.01.2026=========
+        
+
+        // HeatLayer
+        heatLayer = L.heatLayer(latlngs.map(ll => [ll[0], ll[1], 0.5]), { radius: 25, blur: 15, maxZoom: 17 });
+
+        // Sauvegarde de l’état
+        saveMapState(matricule, currentCoords, {
+            parcoursEffectues: document.getElementById("parcoursEffectues").innerText,
+            parcoursAttente: document.getElementById("parcoursAttente").innerText,
+            distanceParcourue: document.getElementById("distanceParcourue").innerText,
+            tauxCouverture: document.getElementById("tauxCouverture").innerText,
+            tempsTournee: document.getElementById("tempsTournee").innerText,
+            statusAgent: document.getElementById("statusAgent").innerText
+        });
+
+    } catch (err) {
+        console.error(err);
+        alert("Impossible de charger les données depuis l'API.");
+    } finally {
+        hideLoader();
+    }
+
+    // Sauvegarde finale
+    localStorage.setItem("mapState", JSON.stringify({
+        matricule: matricule,
+        coords: currentCoords,
+        bounds: latlngs.length ? L.latLngBounds(latlngs).toBBoxString() : null
+    }));
+
+    if (polyline) saveMapState(matricule, currentCoords, polyline.getBounds());
+}
+
+
+// -----------------------------
+// HEATMAP
+// -----------------------------
+function toggleHeatmap(){
+    if(!heatLayer){
+        alert("Aucune heatmap générée. Affichez d'abord une tournée.");
+        return;
+    }
+    if(map.hasLayer(heatLayer)) map.removeLayer(heatLayer);
+    else map.addLayer(heatLayer);
+}
+
+// -----------------------------
+// EXPORTS CSV / PDF
+// -----------------------------
+function exportCSV(){
+    if(!currentCoords.length){ alert('Aucune donnée à exporter.'); return; }
+    let csv = 'Point,Matricule,Reference,Abonne,Latitude,Longitude\n';
+    currentCoords.forEach(c=>{
+        // échapper les virgules dans le nom si besoin
+        const client = (""+c.client).replace(/"/g,'""');
+        csv += `${c.point},${c.matricule},"${c.ref}","${client}",${c.lat},${c.lng}\n`;
+    });
+    const blob = new Blob([csv], {type: 'text/csv;charset=utf-8;'});
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `releveur_${currentCoords[0].matricule}.csv`;
+    link.click();
+}
+
+function exportPDF(){
+    if(!currentCoords.length){ alert('Aucune donnée à exporter.'); return; }
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+
+    doc.setFontSize(16);
+    doc.text(`Rapport Relevé GPS - Releveur ${currentCoords[0].matricule}`, 14, 20);
+    doc.setFontSize(11);
+    const today = new Date();
+    doc.text(`Date: ${today.toLocaleDateString()} ${today.toLocaleTimeString()}`, 14, 28);
+
+    const tableData = currentCoords.map(c => [c.point, c.matricule, c.ref, c.client, c.lat, c.lng]);
+
+    doc.autoTable({
+        startY: 35,
+        head: [['Point','Matricule','Référence','Abonné','Latitude','Longitude']],
+        body: tableData,
+        headStyles: { fillColor: [0, 123, 255], textColor: 255 },
+        alternateRowStyles: { fillColor: [240,240,240] },
+        styles: { fontSize: 9, cellPadding: 3 }
+    });
+
+    doc.save(`releveur_${currentCoords[0].matricule}_rapport.pdf`);
+}
+
+// -----------------------------
+// METEO (OpenWeatherMap) - Remplace API_KEY par la tienne si nécessaire
+// -----------------------------
+async function loadWeather(){
+    try{
+        const API_KEY = "7fba87d611eadcb2b5e089e9337986f2"; // tu peux remplacer par ta clé
+        // const lat = 6.379754349875956, lon = 2.412083611243222;
+        // const resp = await fetch(`https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&units=metric&lang=fr&appid=${API_KEY}`);
+
+        //28.09.2025
+        navigator.geolocation.getCurrentPosition(async pos => {
+        const lat = pos.coords.latitude;
+        const lon = pos.coords.longitude;
+
+        try {
+            const resp = await fetch(`https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&units=metric&lang=fr&appid=${API_KEY}`);
+            const w = await resp.json();
+            if (w && w.weather && w.main) {
+                document.getElementById("weatherDetails").innerHTML =
+                        `<b>${w.name}</b><br/>${w.weather[0].description}<br/>
+                        🌡️ ${w.main.temp}°C (ressentie ${w.main.feels_like}°C)<br/>
+                        💧 Humidité: ${w.main.humidity}%<br/>
+                        💨 Vent: ${w.wind.speed} m/s`;
+                } else {
+                    document.getElementById("weatherDetails").innerText = "Météo indisponible";
+                }
+        } catch(e) {
+                console.error("Météo erreur:", e);
+                document.getElementById("weatherDetails").innerText = "Impossible de charger la météo";
+        }
+        }, err => {
+            console.error("Erreur GPS météo:", err.message);
+            document.getElementById("weatherDetails").innerText = "Impossible d’obtenir la position GPS";
+        }, { enableHighAccuracy: true });
+        
+        //28.09.2025
+
+        const w = await resp.json();
+        if(w && w.weather && w.main){
+            document.getElementById("weatherDetails").innerHTML =
+            `<b>${w.name}</b><br/>${w.weather[0].description}<br/>🌡️ ${w.main.temp}°C (ressentie ${w.main.feels_like}°C)<br/> 💧 Humidité: ${w.main.humidity}%<br/>💨 Vent: ${w.wind.speed} m/s`;
+        } else {
+            document.getElementById("weatherDetails").innerText="Météo indisponible";
+        }
+    } catch(e){
+        console.error("Météo erreur:", e);
+        document.getElementById("weatherDetails").innerText="Impossible de charger la météo";
+    }
+}
+loadWeather();
+
+// -----------------------------
+// SUIVI AVANCE (CHECK-IN / CHECK-OUT / INACTIVITE)
+// -----------------------------
+let checkInTime = null;
+let lastPosition = null;
+let inactivityTimer = null;
+
+function checkIn(){
+    if(!navigator.geolocation){ alert("Géolocalisation non supportée"); return; }
+    navigator.geolocation.getCurrentPosition(pos=>{
+        checkInTime = new Date();
+        lastPosition = { lat: pos.coords.latitude, lon: pos.coords.longitude, time: Date.now() };
+        L.marker([lastPosition.lat, lastPosition.lon], {
+            icon: L.icon({ iconUrl: "https://cdn-icons-png.flaticon.com/512/69/69524.png", iconSize: [25,25] })
+        }).addTo(map).bindPopup("✅ Check-in ici").openPopup();
+        document.getElementById("statusAgent").innerText = "✅ En service";
+        startInactivityWatcher();
+    }, err=>{
+        alert("Impossible d'obtenir la position: " + err.message);
+    }, { enableHighAccuracy: true });
+}
+
+function checkOut(){
+    if(!checkInTime){ alert("Aucun check-in détecté"); return; }
+    navigator.geolocation.getCurrentPosition(pos=>{
+        const checkOutTime = new Date();
+        const duree = Math.round((checkOutTime - checkInTime) / 60000);
+        L.marker([pos.coords.latitude, pos.coords.longitude], {
+            icon: L.icon({ iconUrl: "https://cdn-icons-png.flaticon.com/512/463/463574.png", iconSize: [25,25] })
+        }).addTo(map).bindPopup("🏁 Check-out ici").openPopup();
+        document.getElementById("statusAgent").innerText = `🏁 Hors service (Durée: ${duree} min)`;
+        stopInactivityWatcher();
+        checkInTime = null;
+        lastPosition = null;
+    }, err=>{
+        alert("Impossible d'obtenir la position: " + err.message);
+    }, { enableHighAccuracy: true });
+}
+
+function startInactivityWatcher(){
+    if(inactivityTimer) clearInterval(inactivityTimer);
+    inactivityTimer = setInterval(()=>{
+        navigator.geolocation.getCurrentPosition(pos=>{
+            const now = Date.now();
+            const lat = pos.coords.latitude, lon = pos.coords.longitude;
+            if(lastPosition){
+                const dist = calcDistance(lastPosition.lat, lastPosition.lon, lat, lon); // km
+                // si moins de 50 m (0.05 km) et inactivité > 5 min
+                if(dist < 0.05 && (now - lastPosition.time) > 5*60*1000){
+                    document.getElementById("statusAgent").innerText = "⚠️ Agent inactif > 5min";
+                } else {
+                    document.getElementById("statusAgent").innerText = "✅ En service";
+                }
+            }
+            lastPosition = { lat: lat, lon: lon, time: now };
+        }, err=>{
+            console.warn("watcher position failed:", err.message);
+        }, { enableHighAccuracy: true });
+    }, 60*1000); // chaque minute
+}
+
+function stopInactivityWatcher(){
+    if(inactivityTimer) clearInterval(inactivityTimer);
+    inactivityTimer = null;
+}
+
+// -----------------------------
+// DASHBOARD & EVENTS
+// -----------------------------
+function updateDashboard(points,enAttente,distance,taux,temps={h:0,m:0}){
+    document.getElementById("parcoursEffectues").innerText = points>0?1:0;
+    document.getElementById("parcoursAttente").innerText = points>0?0:1;
+    document.getElementById("distanceParcourue").innerText = distance.toFixed(2)+" km";
+    document.getElementById("tauxCouverture").innerText = taux.toFixed(1)+"%";
+    document.getElementById("tempsTournee").innerText = `${temps.h}h ${temps.m}m`;
+}
+
+document.getElementById('btnAfficher').addEventListener('click', afficherReleveur);
+document.getElementById('matricule').addEventListener('keypress', e=>{
+    if(e.key==='Enter') afficherReleveur();
+});
+
+//26.09.2025 
+
+function saveMapState(matricule, coords, stats) {
+    const state = { matricule, coords, stats };
+    localStorage.setItem("mapState", JSON.stringify(state));
+}
+
+
+
+function clearMapState(){
+    localStorage.removeItem("mapState");
+}
+
+function logout(){
+    localStorage.removeItem("sessionReleveur");
+    localStorage.removeItem("sessionNom");
+    localStorage.removeItem("mapState"); // nettoyer aussi l'état
+    window.location.href="login.html";
+}
+
+
+// -----------------------------
+// RESTAURATION DE L'ÉTAT
+// -----------------------------
+    function restoreMapState() {
+    const saved = localStorage.getItem("mapState");
+    if (saved) {
+        try {
+        const state = JSON.parse(saved);
+
+        // ✅ Restauration du matricule
+        if (state.matricule) {
+            document.getElementById("matricule").value = state.matricule;
+            afficherReleveur(); // recharge la carte et les markers
+        }
+
+        // ✅ Restauration du dashboard
+        if (state.stats) {
+            document.getElementById("parcoursEffectues").innerText = state.stats.parcoursEffectues || "0";
+            document.getElementById("parcoursAttente").innerText = state.stats.parcoursAttente || "0";
+            document.getElementById("distanceParcourue").innerText = state.stats.distanceParcourue || "0 km";
+            document.getElementById("tauxCouverture").innerText = state.stats.tauxCouverture || "0%";
+            document.getElementById("tempsTournee").innerText = state.stats.tempsTournee || "0h 00m";
+            document.getElementById("statusAgent").innerText = state.stats.statusAgent || "⏳ Inactif";
+        }
+        } catch (e) {
+        console.error("Erreur restauration état :", e);
+        }
+    }
+    }
+
+
+window.onload = restoreMapState;
+
+//Les fonctions indicateur de chargement 
+
+function showLoader(text="Chargement des données..."){
+    const l=document.getElementById("loaderPro");
+    l.querySelector(".loader-text").textContent=text;
+    l.classList.remove("loader-hidden");
+    l.classList.add("loader-visible");
+}
+
+function hideLoader(){
+    const l=document.getElementById("loaderPro");
+    l.classList.remove("loader-visible");
+    l.classList.add("loader-hidden");
+}
+
+// Ajouter la légende automatiquement
+const legend = L.control({ position: 'bottomright' });
+
+legend.onAdd = function(map) {
+    const div = L.DomUtil.create('div', 'legend');
+    div.innerHTML = `
+        <div class="item">
+            <div class="color-box" style="background: blue;"></div>
+            <span>Parcours du releveur</span>
+        </div>
+        <div class="item">
+            <span class="arrow" style="color: red;">➤</span>
+            <span>Direction du parcours</span>
+        </div>
+    `;
+    return div;
+};
+
+legend.addTo(map);
+
+
+
+</script>
+</body>
+</html>

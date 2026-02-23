@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Statistiques par Zone</title>
+
+<link rel="icon" href="images/favicongdor.ico" type="image/x-icon">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<!-- FONT AWESOME -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
+<!-- PDF & EXCEL -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.29/jspdf.plugin.autotable.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<style>
+:root {
+    --primary:#2563eb;
+    --secondary:#1e40af;
+    --bg:#f5f7fa;
+    --card:#ffffff;
+    --danger:#dc2626;
+    --success:#16a34a;
+    --warning:#f59e0b;
+}
+
+body {
+    font-family: "Segoe UI", sans-serif;
+    background: var(--bg);
+    padding: 20px;
+}
+
+h2 {
+    text-align: center;
+    color: var(--primary);
+    margin-bottom: 20px;
+}
+
+.btn {
+    padding: 10px 14px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    color: #fff;
+    font-weight: 600;
+}
+.btn-primary { background: var(--primary); }
+.btn-success { background: var(--success); }
+.btn-danger { background: var(--danger); }
+
+.filters {
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+    justify-content:center;
+    margin-bottom:15px;
+}
+
+select,input {
+    padding:10px 14px;
+    border-radius:8px;
+    border:1px solid #ccc;
+    min-width:180px;
+}
+
+.total-box {
+    background: var(--card);
+    padding: 15px;
+    border-left: 6px solid var(--primary);
+    font-size: 18px;
+    font-weight: bold;
+    border-radius: 10px;
+    margin-bottom: 15px;
+}
+
+.table-wrapper {
+    background: var(--card);
+    border-radius: 12px;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.08);
+    overflow: hidden;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+thead {
+    background: linear-gradient(90deg,var(--primary),var(--secondary));
+    color: #fff;
+}
+
+th, td {
+    padding: 12px;
+    text-align: center;
+}
+
+tbody tr:hover {
+    background: #eff6ff;
+}
+
+.loader {
+    position: fixed;
+    inset: 0;
+    background: rgba(255,255,255,0.85);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    font-size: 40px;
+    color: var(--primary);
+    z-index: 999;
+}
+</style>
+</head>
+<!-- code pour controler les inactivites -->
+<!--<script src="js/logout.js"></script>-->
+<body>
+
+<div class="loader" id="loader">
+    <i class="fas fa-spinner fa-spin"></i>
+</div>
+
+<h2><i class="fas fa-layer-group"></i> Regroupement des relevés par zone</h2>
+
+<div class="filters">
+    <select id="releveurSelect">
+        <option value="">-- Sélectionner un releveur --</option>
+    </select>
+
+    <input type="text" id="matriculeInput" placeholder="Matricule (4 chiffres)"
+        maxlength="4" pattern="[0-9]{4}">
+
+    <button class="btn btn-primary" onclick="chargerBordereaux()">
+        <i class="fas fa-search"></i> Afficher
+    </button>
+
+    <button class="btn btn-success" onclick="exportExcel()">
+        <i class="fas fa-file-excel"></i> Excel
+    </button>
+
+    <button class="btn btn-primary" onclick="exportPDF()">
+        <i class="fas fa-file-pdf"></i> PDF
+    </button>
+
+    <button class="btn btn-danger" onclick="history.back()">
+        <i class="fas fa-arrow-left"></i> Retour
+    </button>
+
+</div>
+
+<!--<div class="total-box">
+    Total général à relever : <span id="total">0</span>
+</div>-->
+
+<div class="table-wrapper">
+<table id="dataTable">
+<thead>
+<tr>
+    <th>Matricule</th>
+    <th>Période</th>
+    <th>N° Zone</th>
+    <th>Total à relever</th>
+    <th>Total relevés</th>
+    <th>Total restant</th>
+</tr>
+</thead>
+
+<tbody id="tableBody"></tbody>
+</table>
+</div>
+
+<script>
+const API_RELEVEURS = "http://41.138.61.43:8082/api/wseentrele";
+const API_RELEVES = "http://41.138.61.43:8081/api/wseentrelec";
+
+const select = document.getElementById("releveurSelect");
+const inputMat = document.getElementById("matriculeInput");
+const body   = document.getElementById("tableBody");
+const totalSpan = document.getElementById("total");
+const loader = document.getElementById("loader");
+
+async function chargerReleveurs(){
+    const res = await fetch(API_RELEVEURS);
+    const data = await res.json();
+
+    data.forEach(r=>{
+        const opt = document.createElement("option");
+        opt.value = r.matrire;
+        opt.textContent = `${r.matrire} - ${r.nomprre}`;
+        select.appendChild(opt);
+    });
+}
+
+chargerReleveurs();
+
+async function chargerBordereaux(){
+
+    let matricule = inputMat.value.trim();
+
+    if(!matricule){
+        matricule = select.value;
+    }
+
+    if(!matricule || matricule.length !== 4){
+        alert("Veuillez saisir ou sélectionner un matricule valide (4 chiffres)");
+        return;
+    }
+
+    loader.style.display="flex";
+
+    const res = await fetch(`${API_RELEVES}/${matricule}`);
+    const data = await res.json();
+
+    loader.style.display="none";
+
+    if(!Array.isArray(data)){
+        alert("Aucune donnée trouvée pour ce matricule");
+        return;
+    }
+
+let periodeGlobale = "";
+
+const PERIODE_MIN = 202601;
+const groupes = {};
+
+data.forEach(r => {
+
+    if (!r.perirp || Number(r.perirp) < PERIODE_MIN) return;
+
+    if(!periodeGlobale){
+        periodeGlobale = r.perirp;
+    }
+
+    const bor = r.borbrp || 0;
+
+    if (!groupes[bor]) {
+        groupes[bor] = {
+            totalReleves: 0,
+            totalARelever: 0,
+            totalRestant: 0
+        };
+    }
+
+    // Total à relever
+    if (r.codrrl && r.codrrl.trim() !== "") {
+        groupes[bor].totalARelever++;
+    }
+
+    // Total relevés (daterp ≠ 0)
+    if (Number(r.daterp) !== 0) {
+        groupes[bor].totalReleves++;
+    }
+
+    // Total restant (daterp = 0)
+    if (Number(r.daterp) === 0) {
+        groupes[bor].totalRestant++;
+    }
+
+});
+
+if(Object.keys(groupes).length === 0){
+    alert("Aucune donnée disponible pour une période ≥ 202601");
+    return;
+}
+
+afficher(groupes, periodeGlobale);
+
+
+}
+
+function afficher(groupes, periode){
+
+    body.innerHTML = "";
+    let total = 0;
+
+    let sommeARelever = 0;
+    let sommeReleves  = 0;
+    let sommeRestant  = 0;
+
+    const matricule = inputMat.value.trim() || select.value;
+    const lignes = Object.entries(groupes)
+        .sort((a,b)=> b[1].totalReleves - a[1].totalReleves);
+
+    lignes.forEach(([bordereau, stats], index) => {
+
+        total += stats.totalReleves;
+
+        sommeARelever += stats.totalARelever;
+        sommeReleves  += stats.totalReleves;
+        sommeRestant  += stats.totalRestant;
+
+        body.innerHTML += `
+        <tr>
+            ${index === 0 ? `<td rowspan="${lignes.length}" style="font-weight:bold;background:#eef2ff">${matricule}</td>` : ``}
+            ${index === 0 ? `<td rowspan="${lignes.length}" style="font-weight:bold;background:#ecfeff">${periode}</td>` : ``}
+            <td>${bordereau}</td>
+            <td>${stats.totalARelever}</td>
+            <td>${stats.totalReleves}</td>
+            <td style="color:${stats.totalRestant>0?'#dc2626':'#16a34a'};font-weight:bold;">
+                ${stats.totalRestant}
+            </td>
+        </tr>`;
+    });
+
+    // 🔽 LIGNE DES TOTAUX GÉNÉRAUX
+    body.innerHTML += `
+        <tr style="background:#1e40af;color:white;font-weight:bold;">
+            <td colspan="3">TOTAL GÉNÉRAL</td>
+            <td>${sommeARelever}</td>
+            <td>${sommeReleves}</td>
+            <td>${sommeRestant}</td>
+        </tr>
+    `;
+
+    totalSpan.textContent = total;
+}
+
+
+
+function exportPDF(){
+    const {jsPDF}=window.jspdf;
+    const doc=new jsPDF();
+    doc.autoTable({html:'#dataTable'});
+    doc.save("statistiques_bordereaux.pdf");
+}
+
+function exportExcel(){
+    const wb=XLSX.utils.table_to_book(document.querySelector("#dataTable"));
+    XLSX.writeFile(wb,"statistiques_bordereaux.xlsx");
+}
+</script>
+
+</body>
+</html>

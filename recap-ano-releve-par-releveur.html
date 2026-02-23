@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Récap anomalies releveur</title>
+    <script>
+            fetch("/favicon.html")
+            .then(res => res.text())
+            .then(html => {
+                document.head.innerHTML += html;
+            });
+    </script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <style>
+
+        body{
+            font-family: Arial, sans-serif;
+            background:#f5f7fa;
+            padding:20px;
+        }
+
+        /* zone selection */
+        .topbar{
+            display:flex;
+            gap:10px;
+            flex-wrap:wrap;
+            margin-bottom:20px;
+        }
+
+        select,input,button{
+            padding:10px;
+            border-radius:6px;
+            border:1px solid #ccc;
+        }
+
+        button{
+            background:#2563eb;
+            color:white;
+            border:none;
+            cursor:pointer;
+        }
+
+        /* carte */
+        .card{
+            background:white;
+            padding:25px;
+            border-radius:12px;
+            box-shadow:0 8px 18px rgba(0,0,0,0.08);
+        }
+
+        /* ENTETE impression */
+        .print-header{
+            display:flex;
+            justify-content:space-between;
+            align-items:flex-start;
+            margin-bottom:20px;
+        }
+
+        .print-title{
+            text-align:center;
+            flex:1;
+        }
+
+        .print-title h2{
+            margin:0;
+            letter-spacing:1px;
+        }
+
+        .logo{
+            width:110px;
+        }
+
+        /* table */
+        table{
+            width:100%;
+            border-collapse:collapse;
+        }
+
+        th,td{
+            padding:10px;
+            border:1px solid #ddd;
+            text-align:left;
+        }
+
+        thead{
+            background:#f1f5f9;
+            font-weight:bold;
+        }
+
+        /* totals */
+        .total-box{
+            margin-top:15px;
+            border:1px solid #ccc;
+        }
+
+        .total-box div{
+            padding:10px;
+            border-top:1px solid #ddd;
+            font-weight:bold;
+        }
+
+        /* print */
+        @media print{
+
+        .topbar{display:none}
+
+        body{
+            background:white;
+            padding:0;
+            margin:0;
+            font-size:12px;
+        }
+
+        .card{
+            box-shadow:none;
+            padding:0;
+            border:none;
+        }
+
+        .print-header{
+            margin-bottom:10px;
+        }
+
+        .print-title h2{
+            font-size:18px;
+        }
+
+        .logo{
+            width:90px;
+        }
+
+        /* tableau impression */
+        table{
+            font-size:12px;
+        }
+
+        th,td{
+            padding:6px;
+        }
+
+        /* éviter coupure ligne */
+        tr{
+            page-break-inside:avoid;
+        }
+
+        /* totals */
+        .total-box{
+            margin-top:10px;
+            border:1px solid #000;
+        }
+
+        .total-box div{
+            border-top:1px solid #000;
+            padding:6px;
+        }
+
+        }
+
+
+        .btn-danger { background-color:#dc2626 }
+
+        /* PRELOADER */
+        #loader{
+            display:none;
+            position:fixed;
+            top:0;
+            left:0;
+            width:100%;
+            height:100%;
+            background:rgba(255,255,255,0.8);
+            z-index:9999;
+        }
+
+        .loader-spin{
+            position:absolute;
+            top:50%;
+            left:50%;
+            transform:translate(-50%,-50%);
+            width:60px;
+            height:60px;
+            border:7px solid #e5e7eb;
+            border-top:7px solid #2563eb;
+            border-radius:50%;
+            animation:spin 1s linear infinite;
+        }
+
+        @keyframes spin{
+            0%{ transform:translate(-50%,-50%) rotate(0deg);}
+            100%{ transform:translate(-50%,-50%) rotate(360deg);}
+        }
+
+        .anom-cell{
+            display:grid;
+            grid-template-columns:60px 60px 1fr;
+            gap:20px;
+            align-items:center;
+        }
+
+        .anom-zone{
+            font-weight:bold;
+        }
+
+        .anom-code{
+            font-weight:bold;
+            color:#2563eb;
+        }
+
+        #releveurInfo{
+            margin-top:5px;
+            font-weight:bold;
+        }
+
+
+    </style>
+</head>
+
+    <div id="loader">
+        <div class="loader-spin"></div>
+    </div>
+
+
+<body>
+
+    <div class="topbar">
+
+        <select id="releveurSelect">
+        <option value="">-- Sélectionner releveur --</option>
+        </select>
+
+        <input type="text" id="matriculeInput" placeholder="Saisir matricule">
+
+        <button onclick="loadRecap()">Afficher</button>
+        <button onclick="window.print()">Imprimer</button>
+        <button class="btn btn-danger" onclick="history.back()">
+                <i class="fas fa-arrow-left"></i> Retour
+        </button>
+
+    </div>
+
+    <div class="card">
+
+        <!-- ENTETE -->
+        <div class="print-header">
+
+            <div style="width:120px"></div>
+
+            <div class="print-title">
+                <h2>RECAPITULATIF DES ANOMALIES DE RELEVE</h2>
+                <div id="periode"></div>
+                <div id="releveurInfo"></div>
+                <img src="images/logos-NDE.png" class="logo">
+            </div>
+
+            <!--<img src="images/logos-NDE.png" class="logo">-->
+
+        </div>
+
+        <!-- TABLE -->
+        <table id="table">
+            <thead>
+            <tr>
+            <th>ANOMALIE</th>
+            <th>NOMBRE</th>
+            </tr>
+            </thead>
+
+            <tbody id="tbody"></tbody>
+        </table>
+
+        <div class="total-box">
+            <div id="nbTypes"></div>
+            <div id="nbTotal"></div>
+        </div>
+
+    </div>
+
+
+    <script>
+
+        /* API */
+        const API_RELEVEURS="http://41.138.61.43:8082/api/wseentrele";
+        const API_DATA_BASE="http://41.138.61.43:8081/api/wseentrelec/";
+
+        /* liste anomalies */
+        const anomalyItems=[
+            { description:'Alim. directe',                 id:'AD'},
+            { description:'Ancien modèle compteur',        id:'AM'},
+            { description:'Arrêt en Galva',                id:'AG'},
+            { description:'Auto-relève',                   id:'AR'},
+            { description:'Branchement coupé',             id:'BC'},
+            { description:'Branchement détruit',           id:'BD'},
+            { description:'Changement d’activité',         id:'CH'},
+            { description:'Client absent',                 id:'AB'},
+            { description:'Compteur absent',               id:'CT'},
+            { description:'Compteur bloqué',               id:'CB'},
+            { description:'Compteur cassé',                id:'CA'},
+            { description:'Compteur coupé',                id:'CP'},
+            { description:'Compteur défectueux',           id:'CF'},
+            { description:'Compteur déposé',               id:'CD'},
+            { description:'Compteur enterré',              id:'CE'},
+            { description:'Compteur étalon',               id:'ET'},
+            { description:'Compteur inaccessible',         id:'CI'},
+            { description:'Compteur inversé',              id:'CV'},
+            { description:'Compteur prépayé',              id:'PP'},
+            { description:'Compteur repassé à zéro',       id:'CZ'},
+            { description:'Diamètre compteur inexact',     id:'DI'},
+            { description:'Erreur relevé d’index',         id:'ER'},
+            { description:'Existence de forage',           id:'EF'},
+            { description:'Fausse codification',           id:'FC'},
+            { description:'Fraude',                        id:'FR'},
+            { description:'Fuite après compteur',          id:'FT'},
+            { description:'Fuite avant compteur',          id:'FU'},
+            { description:'Gazon ou jardin',               id:'GZ'},
+            { description:'Inhabité',                      id:'IH'},
+            { description:'Non relevé',                    id:'NR'},
+            { description:'Non vu',                        id:'NV'},
+            { description:'N° compteur différent',         id:'DD'},
+            { description:'Branchement non trouvé',        id:'NT'},
+            { description:'Porte fermée',                  id:'PF'},
+            { description:'Surfacturation',                id:'SF'},
+            { description:'Vitre fissurée',                id:'VF'}
+        ];
+
+
+        /* ===============================
+            CHARGER LISTE RELEVEURS
+        ================================ */
+
+        async function loadReleveurs(){
+
+            try{
+
+            const res=await fetch(API_RELEVEURS);
+
+            if(!res.ok) throw new Error("API releveurs inaccessible");
+
+            const data=await res.json();
+
+            const select=document.getElementById("releveurSelect");
+
+            select.innerHTML='<option value="">-- Sélectionner releveur --</option>';
+
+            data.forEach(r=>{
+
+            if(!r.matrire) return;
+
+            const opt=document.createElement("option");
+
+            opt.value=r.matrire.trim();
+            opt.textContent=r.matrire+" - "+(r.nomprre || "");
+
+            select.appendChild(opt);
+
+            });
+
+            }catch(e){
+
+            console.error(e);
+            alert("Impossible de charger la liste des releveurs.\nVérifie HTTP/HTTPS ou réseau.");
+
+            }
+
+        }
+
+        loadReleveurs();
+
+
+        /* ===============================
+            SI ON SELECTIONNE -> remplir champ matricule
+        ================================ */
+
+        document.getElementById("releveurSelect")
+        .addEventListener("change",function(){
+
+        document.getElementById("matriculeInput").value=this.value;
+
+        });
+
+
+        /* ===============================
+            CHARGER RECAP
+        ================================ */
+
+        async function loadRecap(){
+
+            const matricule =
+            document.getElementById("matriculeInput").value.trim();
+
+            if(!matricule){
+            alert("Choisir ou saisir matricule");
+            return;
+            }
+
+            /* AFFICHER LOADER */
+            const loader=document.getElementById("loader");
+            if(loader) loader.style.display="block";
+
+
+
+            try{
+
+            const url=API_DATA_BASE+matricule;
+
+            const res=await fetch(url);
+
+            if(!res.ok) throw new Error("API anomalies inaccessible");
+
+            const data=await res.json();
+
+            const tbody=document.getElementById("tbody");
+            tbody.innerHTML="";
+
+           /* periode + info releveur */
+            if(data.length>0){
+
+                const first=data[0];
+
+                // periode
+                if(first.perirp){
+                    const p=first.perirp;
+                    document.getElementById("periode").innerHTML=
+                    "Periode de consommation : "+p.substring(0,4)+" / "+p.substring(4,6);
+                }else{
+                    document.getElementById("periode").innerHTML="";
+                }
+
+                // matricule + nom
+                const matriculeTxt = matricule; // ← valeur déjà saisie / sélectionnée
+                const nomTxt = first.nomurp ? first.nomurp : "";
+
+                document.getElementById("releveurInfo").innerHTML=
+                "Matricule : "+matriculeTxt+" &nbsp;&nbsp;&nbsp; | &nbsp;&nbsp;&nbsp; Nom releveur : "+nomTxt;
+
+            }else{
+                document.getElementById("periode").innerHTML="";
+                document.getElementById("releveurInfo").innerHTML="";
+            }
+
+            /* comptage */
+            const counts={};
+            const uniqueCodes=new Set();   // <-- AJOUT
+
+            data.forEach(row=>{
+
+            const code=row.anomrp;
+
+            if(code && code.trim()!==""){
+
+                uniqueCodes.add(code.trim());   // <-- AJOUT
+
+                const zone=row.borbrp || "";
+                const key=zone+" "+code.trim();
+
+                if(!counts[key]) counts[key]=0;
+
+                counts[key]++;
+
+            }
+
+            });
+
+
+            /* affichage */
+
+            let totalTypes=0;
+            let totalGlobal=0;
+
+            Object.keys(counts).sort().forEach(key=>{
+
+            const [zone,code]=key.split(" ");
+
+            const descObj=anomalyItems.find(a=>a.id===code);
+            const desc=descObj?descObj.description:"";
+
+            const tr=document.createElement("tr");
+
+            tr.innerHTML=`
+            <td>
+                <div class="anom-cell">
+                    <span class="anom-zone">${zone}</span>
+                    <span class="anom-code">${code}</span>
+                    <span>${desc}</span>
+                </div>
+            </td>
+            <td>${counts[key]}</td>
+            `;
+
+
+            tbody.appendChild(tr);
+
+            totalTypes++;
+            totalGlobal+=counts[key];
+
+            });
+
+            document.getElementById("nbTypes").textContent=
+            "NOMBRE D'ANOMALIES DE RELEVE : "+uniqueCodes.size;
+
+            document.getElementById("nbTotal").textContent=
+            "NOMBRE TOTAL D'ANOMALIES : "+totalGlobal;
+
+            }catch(e){
+
+            console.error(e);
+            alert("Erreur chargement anomalies.\nPossible problème HTTP/HTTPS.");
+
+            }finally{
+
+            /* CACHER LOADER */
+            if(loader) loader.style.display="none";
+
+
+            }
+
+
+        }
+
+    </script>
+
+</body>
+</html>

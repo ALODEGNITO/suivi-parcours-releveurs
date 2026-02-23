@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<title>Suivi du Parcours du Releveur</title>
+
+<!-- Style global -->
+<link rel="stylesheet" href="css/style.css">
+
+<script>
+    fetch("/favicon.html")
+    .then(res => res.text())
+    .then(html => {
+        document.head.innerHTML += html;
+});
+</script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Suivi du Parcours du Releveur</title>
+<link href="https://cdn.jsdelivr.net/npm/remixicon/fonts/remixicon.css" rel="stylesheet">
+<style>
+body {
+    margin: 0;
+    font-family: "Segoe UI", sans-serif;
+    background: #f4f6f9;
+    color: #333;
+    overflow: hidden;
+}
+
+/* ==== SPLASH SCREEN ==== */
+#splash {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: #6D6D6D;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+}
+
+.pulse-logo {
+    width: 150px;
+    border-radius: 10px;
+    opacity: 0;
+    transform: scale(0.5);
+    animation: splashLogo 1.5s ease forwards, pulse 2s ease-in-out 1.5s infinite alternate;
+}
+
+.fade-text {
+    color: #fff;
+    margin-top: 20px;
+    font-size: 28px;
+    opacity: 0;
+    animation: splashText 1.5s ease forwards, textPulse 2.5s ease-in-out 1.5s infinite alternate;
+}
+
+/* Animations Splash */
+@keyframes splashLogo { from { opacity: 0; transform: scale(0.5); } to { opacity: 1; transform: scale(1); } }
+@keyframes splashText { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
+@keyframes textPulse { 0% { opacity: 1; } 50% { opacity: 0.6; } 100% { opacity: 1; } }
+
+/* ==== APP PRINCIPALE ==== */
+#app { display: none; height: 100vh; display: flex; flex-direction: row; }
+
+/* Sidebar */
+.sidebar {
+    background: #6D6D6D;
+    color: white;
+    width: 260px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
+    height: 100vh;
+    transition: transform 0.3s ease-in-out;
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 1000;
+    border-right: 2px solid #ddd;
+    box-shadow: 2px 0 6px rgba(0,0,0,0.1);
+}
+.sidebar.hidden { transform: translateX(-100%); }
+.sidebar h1 { font-size: 24px; margin-bottom: 15px; }
+.sidebar img {
+    width: 140px;
+    border-radius: 10px;
+    margin-bottom: 15px;
+    opacity: 0;
+    transform: scale(0.5);
+    animation: zoomIn 1.5s ease forwards;
+    animation-delay: 0.5s;
+}
+.sidebar .menu-label {
+    font-weight: bold;
+    margin: 10px 0;
+    font-size: 18px;
+    text-transform: uppercase;
+    color: #ddd;
+    opacity: 0;
+    animation: fadeInText 2s ease forwards;
+    animation-delay: 1s;
+}
+.sidebar .btn {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    margin: 6px 0;
+    padding: 10px;
+    text-align: left;
+    border: none;
+    border-radius: 8px;
+    background: #555;
+    color: white;
+    cursor: pointer;
+    transition: background 0.3s;
+    font-size: 18px;
+    text-decoration: none;
+    font-weight: 500;
+    opacity: 0;
+    animation: fadeInUp 1s ease forwards;
+}
+.sidebar .btn:nth-child(3) { animation-delay: 1.2s; }
+.sidebar .btn:nth-child(4) { animation-delay: 1.4s; }
+.sidebar .btn:nth-child(5) { animation-delay: 1.6s; }
+.sidebar .btn img { width: 22px; height: 22px; margin-right: 10px; object-fit: contain; }
+.sidebar .btn:hover { background: #0d6efd; }
+.quit-btn { margin-top: auto; background: #dc3545 !important; border-top: 1px solid #999; padding-top: 15px; }
+
+/* Footer dans la sidebar 
+.footer {
+    font-size: 13px;
+    color: #ccc;
+    text-align: center;
+    margin-top: 15px;
+    padding: 8px 0;
+    border-top: 1px solid #888;
+    width: 100%;
+}*/
+
+/* Footer dans la sidebar */
+.footer {
+    font-size: 18px;
+    color: #fff; /* texte blanc */
+    font-weight: bold; /* texte en gras */
+    text-align: center;
+    margin-top: 15px;
+    padding: 8px 0;
+    border-top: 1px solid #888;
+    width: 100%;
+    text-shadow: 1px 1px 3px rgba(0,0,0,0.6); /* améliore la lisibilité */
+}
+
+
+/* Menu toggle */
+.menu-toggle {
+    position: absolute;
+    top: 15px;
+    left: 15px;
+    font-size: 28px;
+    cursor: pointer;
+    z-index: 1100;
+    background: #6D6D6D;
+    color: white;
+    border: none;
+    padding: 8px 12px;
+    border-radius: 5px;
+    transition: background 0.3s;
+}
+.menu-toggle:hover { background: #555; }
+
+/* Main content */
+.main {
+    flex: 1;
+    padding: 20px;
+    overflow-y: auto;
+    position: relative;
+    margin-left: 300px;
+    transition: margin-left 0.3s ease-in-out;
+    width: calc(100% - 300px);
+}
+.sidebar.hidden + .main { margin-left: 40px; width: calc(100% - 40px); }
+
+.main h2 {
+    margin-bottom: 20px;
+    font-size: 30px;
+    color: #222;
+    opacity: 0;
+    animation: fadeInDown 2s ease forwards;
+}
+
+.menu-list { list-style: none; padding: 0; margin: 0; }
+.menu-list li { margin-bottom: 10px; }
+.menu-list li a {
+    display: flex;
+    align-items: center;
+    background: white;
+    padding: 12px 15px;
+    border-radius: 10px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    text-decoration: none;
+    color: #333;
+    transition: transform 0.2s, box-shadow 0.2s;
+    font-size: 28px;
+    font-weight: 500;
+    opacity: 0;
+    animation: fadeInUp 1.5s ease forwards;
+}
+.menu-list li:nth-child(1) a { animation-delay: 0.5s; }
+.menu-list li:nth-child(2) a { animation-delay: 0.7s; }
+.menu-list li:nth-child(3) a { animation-delay: 0.9s; }
+.menu-list li:nth-child(4) a { animation-delay: 1.1s; }
+.menu-list li a:hover { transform: translateX(5px); box-shadow: 0 3px 6px rgba(0,0,0,0.15); color: #0d6efd; }
+.menu-list li a img { width: 30px; height: 30px; margin-right: 15px; object-fit: contain; }
+
+.user-info {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    display: flex;
+    align-items: center;
+    font-size: 15px;
+    color: #333;
+    font-weight: bold;
+    opacity: 0;
+    animation: fadeIn 2s ease forwards;
+    animation-delay: 1.5s;
+}
+.user-info i { margin-right: 6px; font-size: 18px; color: #0d6efd; }
+
+/* Animations */
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes fadeInDown { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes fadeInText { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes zoomIn { from { opacity: 0; transform: scale(0.5); } to { opacity: 1; transform: scale(1); } }
+
+@media (max-width: 768px) {
+    .sidebar { transform: translateX(-100%); }
+    .sidebar.show { transform: translateX(0); }
+    .main { margin-left: 0 !important; width: 100% !important; }
+}
+
+/* Sous-menu par défaut masqué */
+.menu-list li .submenu {
+    display: none;
+    list-style: none;
+    padding-left: 20px;
+    margin-top: 5px;
+}
+
+/* Style sous-menu */
+.menu-list li .submenu li a {
+    font-size: 20px;
+    background: #eee;
+    color: #333;
+    padding: 8px 12px;
+    border-radius: 6px;
+    margin: 4px 0;
+    display: block;
+    font-weight: normal;
+}
+
+/* Animation simple */
+.menu-list li .submenu li a:hover {
+    background: #0d6efd;
+    color: #fff;
+}
+
+/* Classe active pour afficher le sous-menu */
+.menu-list li.open .submenu {
+    display: block;
+}
+
+</style>
+</head>
+
+<!-- code pour controler les inactivites -->
+<!-- <script src="js/logout.js"></script>-->
+
+<body>
+
+<!-- SPLASH SCREEN -->
+<div id="splash">
+    <img src="/images/tracking_transparent.gif" alt="Logo NIGELEC" class="pulse-logo">
+    <h1 class="fade-text">Bienvenue sur Suivi du Parcours du Releveur</h1>
+</div>
+
+<!-- APP PRINCIPALE -->
+<div id="app">
+    <button class="menu-toggle" onclick="toggleSidebar()">☰</button>
+
+    <div class="sidebar" id="sidebar">
+        <h1>NDE</h1>
+        <img src="/images/gdor2.png" alt="Logo Gd'or">
+        <div class="menu-label">Menu</div><br>
+        <button class="btn"><img src="/images/padlock.png" alt="Mot de passe">Mot de passe</button>
+        <button class="btn"><img src="/images/open-folder.png" alt="Spool">Spool</button>
+        <button class="btn"><img src="/images/manual.png" alt="Guides">Guides</button><br><br><br><br><br><br><br>
+        <button class="btn quit-btn" onclick="quitter()"><img src="/images/logout.png" alt="Quitter">Quitter</button>
+
+        <!-- Footer -->
+        <div class="footer">Suivi du Parcours du Releveur V.1.0.0</div>
+    </div><br><br>
+
+    <div class="main" id="mainContent">
+        <div class="user-info">
+            <i class="ri-user-3-fill"></i>
+            <span id="userName">Utilisateur</span>
+        </div>
+
+        <h2>Suivi du Parcours du Releveur</h2>
+        <ul class="menu-list">
+            <li class="has-submenu">
+                <a href="javascript:void(0);" class="submenu-toggle">
+                    <img src="/images/travel.png" alt="Carte">
+                    Carte de Suivi des Points Visités et Indexés (Performance)
+                </a>
+                <ul class="submenu">
+                    <li><a href="admin-map-visites-indexes.html">Visités Indexés</a></li>
+                    <li><a href="admin-map-visites-non-indexes.html">Visités Non Indexés</a></li>
+                    <li><a href="admin-map-visites-anomalie.html">Visités Avec Anomalie</a></li>
+                    <!--<li><a href="Test.html">Test</a></li>-->
+                </ul>
+            </li>
+
+            <li><a href="admin-map.html"><img src="/images/placeholder.png" alt="Carte">
+            Carte de Suivi des Points à Visiter (Performance du releveur)</a></li>
+            <li><a href="classement.html"><img src="/images/top-three.png" alt="Classement">
+            Performance d'un Releveur par Rapport au Nombre de Points Visités sur le Nombre de Points à Visiter (%)</a></li>
+            <li><a href="classement-en-nombre-de-releves.html"><img src="/images/demand.png" alt="classement-en-nombre-de-releves">
+            Classement Général des Releveurs par Nombre de Points Visités et Relevés</a></li>
+            <li><a href="classement-releveur-par-agence.html"><img src="/images/agence.png" alt="classement-releveur-par-agence">
+            Classement des Releveurs par Agence</a></li>
+            <!-- <li><a href="classement_individuel.html"><img src="/images/rank.png" alt="Classement Individuel">
+            Statistiques Personnelles d'un Releveur</a></li>-->
+            <li><a href="voir-details-releveur.html"><img src="/images/attention-to-detail.png" alt="Classement Individuel">
+            Détails des Relèves</a></li>
+            <li><a href="tracking-releveur.html"><img src="/images/tracking-app.png" alt="Classement Individuel">
+            Suivre la Position d'un Releveur en Temps Réel</a></li>
+            <li><a href="suivi-statistiques-des-releves.html"><img src="/images/folder.png" alt="Suivi & Statistiques des Relèves">
+            Suivi & Statistiques des Relèves</a></li>
+            <li><a href="login.html"><img src="/images/logout.png" alt="Déconnexion">Déconnexion</a></li>
+        </ul>
+    </div>
+</div>
+
+<script>
+function quitter() {
+    if (confirm("Voulez-vous vraiment quitter ?")) {
+        localStorage.removeItem("sessionReleveur");
+        localStorage.removeItem("sessionNom");
+        sessionStorage.removeItem("splashShown");
+        window.location.href = "login.html";
+    }
+}
+
+function toggleSidebar() {
+    document.getElementById("sidebar").classList.toggle("hidden");
+}
+
+window.onload = () => {
+    const nom = localStorage.getItem("sessionNom");
+    if (!nom) { window.location.href = "login.html"; return; }
+    document.getElementById("userName").textContent = nom;
+
+    const splashShown = sessionStorage.getItem("splashShown");
+    if (splashShown) {
+        document.getElementById("splash").style.display = "none";
+        document.getElementById("app").style.display = "flex";
+        document.body.style.overflow = "auto";
+    } else {
+        sessionStorage.setItem("splashShown", "true");
+        setTimeout(() => {
+            document.getElementById("splash").style.display = "none";
+            document.getElementById("app").style.display = "flex";
+            document.body.style.overflow = "auto";
+        }, 2500);
+    }
+};
+
+// Gestion des sous-menus
+document.querySelectorAll('.submenu-toggle').forEach(toggle => {
+    toggle.addEventListener('click', function() {
+        const parentLi = this.parentElement;
+        parentLi.classList.toggle('open'); // ouvre/ferme le sous-menu
+    });
+});
+
+</script>
+
+</body>
+</html>

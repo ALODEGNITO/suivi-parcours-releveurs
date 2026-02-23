@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Suivi & Statistiques des Relèves</title>
+    <script>
+        fetch("/favicon.html")
+        .then(res => res.text())
+        .then(html => {
+            document.head.innerHTML += html;
+        });
+    </script>
+
+    <style>
+        /* ===== STYLE GLOBAL ===== */
+        body {
+        margin: 0;
+        font-family: Arial, sans-serif;
+        background: #f8f9fc;
+        color: #222;
+        }
+
+        section {
+        padding: 60px 20px;
+        text-align: center;
+        }
+
+        /* ===== TITRE PRINCIPAL ===== */
+        h1 {
+        font-size: 38px;
+        font-weight: bold;
+        margin-bottom: 10px;
+        color: #2563eb; /* Bleu demandé */
+        }
+
+        .underline {
+        width: 70px;
+        height: 5px;
+        background: #007bff;
+        margin: 10px auto 50px;
+        border-radius: 10px;
+        }
+
+        /* ===== GRID DES BOUTONS ===== */
+        .cards-container {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 25px;
+        max-width: 1100px;
+        margin: auto;
+        }
+
+        /* ===== CARTE GENERALE ===== */
+        .card {
+        padding: 35px 20px;
+        border-radius: 18px;
+        box-shadow: 0 8px 20px rgba(0,0,0,0.08);
+        cursor: pointer;
+        transition: 0.3s ease;
+        position: relative;
+        text-decoration: none;
+        color: white;
+        }
+
+        .card:hover {
+        transform: translateY(-8px);
+        box-shadow: 0 12px 25px rgba(0,0,0,0.15);
+        }
+
+        /* ===== CARTES BLEUES ===== */
+        .card-blue {
+        /*background: #007bff; */
+        background: #2563eb;
+        }
+
+        /* ===== CARTE RETOUR ROUGE ===== */
+        .card-red {
+        background: #b91c1c;
+        }
+
+        /* ===== ICONE ===== */
+        .icon {
+        width: 45px;
+        height: 45px;
+        border-radius: 50%;
+        background: rgba(255,255,255,0.25);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: auto;
+        margin-bottom: 15px;
+        font-size: 22px;
+        color: white;
+        }
+
+        /* ===== TITRE ===== */
+        .card h3 {
+        font-size: 20px;
+        font-weight: bold;
+        margin: 0;
+        color: white;
+        }
+
+        .card h3::after {
+        content: "";
+        display: block;
+        width: 50px;
+        height: 4px;
+        background: white;
+        margin: 12px auto 0;
+        border-radius: 10px;
+        }
+    </style>
+    </head>
+
+<!-- code pour controler les inactivites -->
+<!-- <script src="js/logout.js"></script>-->
+
+    <body>
+
+    <!-- ===== SECTION SUIVI ===== -->
+    <section>
+
+        <h1>Suivi & Statistiques des Relèves</h1>
+        <div class="underline"></div>
+
+        <div class="cards-container">
+
+        <!-- 5 CARTES BLEUES -->
+        <div class="card card-blue" onclick="window.location.href='releveurs-et-index-par-agence.html'">
+            <div class="icon">👤</div>
+            <h3>Releveurs & Index par agence</h3>
+        </div>
+
+        <div class="card card-blue" onclick="window.location.href='point-visites-indexes-par-agence.html'">
+            <div class="icon">📍</div>
+            <h3>Points visités et indexés par agence et au niveau national</h3>
+        </div>
+
+        <div class="card card-blue" onclick="window.location.href='recap-ano-releve-par-releveur.html'">
+            <div class="icon">📊</div>
+            <h3>Recapitulatif des anomalies de releve par releveur</h3>
+        </div>
+
+        <!--<div class="card card-blue" onclick="window.location.href='performance-des-agences.html'">
+            <div class="icon">📊</div>
+            <h3>Performances des agences</h3>
+        </div>
+
+        <div class="card card-blue" onclick="window.location.href='historique-bordereaux-releveur.html'">
+            <div class="icon">🔄</div>
+            <h3>Consulter les Bordereaux d'un Releveur</h3>
+        </div>
+
+        <div class="card card-blue">
+            <div class="icon">🌍</div>
+            <h3>Statistiques nationales</h3>
+        </div>-->
+
+        <!-- BOUTON RETOUR ROUGE -->
+        <a href="accueil.html" class="card card-red">
+            <div class="icon">⬅️</div>
+            <h3>Retour</h3>
+        </a>
+
+        </div>
+
+    </section>
+
+</body>
+</html>

@@ -1,0 +1,1679 @@
+<!DOCTYPE html>
+    <html lang="fr">
+    <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Suivi du Parcours du Releveur</title>
+    
+    <!-- Favicon au format .ico -->
+    <link rel="icon" href="images/favicongdor.ico" type="image/x-icon">
+
+    <!-- CSS Modern Light Mode -->
+    <style>
+    html, body {
+        height: 100%;
+        margin: 0;
+        padding: 0;
+    }
+
+    :root {
+        --primary: #2b7cff;
+        --muted: #6b7280;
+        --bg: #f4f6fb;
+        --card: #ffffff;
+        --success: #16a34a;
+        --warn: #f59e0b;
+        --danger: #ef4444;
+        --radius: 12px;
+        font-family: 'Inter', system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+    }
+    * { box-sizing: border-box; margin:0; padding:0; }
+    body { 
+        background: var(--bg); 
+        color:#0f172a; 
+        min-height: 100vh; 
+        display:flex; 
+        flex-direction:column; 
+    }
+    /* .container{
+        width:100%;
+        height:100%;
+        margin:0;
+        padding:20px;
+        flex:1;
+    }*/
+
+    /* nouveau container 29.01.2026 */
+    .container {
+        padding-top: 20px;
+    }
+
+
+    /* header{
+        display:flex; 
+        flex-wrap:wrap; 
+        justify-content:space-between; 
+        align-items:center; 
+        gap:12px; 
+        margin-bottom:20px;
+    }*/
+
+    /* nouveau header 29.01.2026 */
+    header {
+        position: sticky;
+        top: 0;
+        z-index: 999;
+        background: var(--bg);
+        padding: 15px 10px;
+        border-bottom: 1px solid #e6e9ef;
+    }
+
+    /* ✅ Zone scrollable pour le tableau */
+    .table-wrapper {
+        max-height: 400px;   /* Hauteur fixe */
+        overflow-y: auto;    /* Scroll vertical */
+        border-radius: var(--radius);
+        border: 1px solid #e6e9ef;
+    }
+
+    /* ✅ Fixer l'entête du tableau */
+    thead th {
+        position: sticky;
+        top: 0;
+        z-index: 20;
+        background: #eef6ff;
+    }
+
+
+    h1{ font-size:30px; color:var(--primary); }
+    .controls{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+    .input, select{
+        padding:10px 14px; border-radius:8px; border:1px solid #e6e9ef; background:var(--card); font-size:14px; min-width:220px;
+    }
+    .input:focus, select:focus{ border-color:var(--primary); outline:none; box-shadow:0 6px 18px rgba(43,124,255,0.15);}
+    button{
+        padding:10px 16px; border-radius:10px; border:none; background:var(--primary); color:#fff; font-weight:600; cursor:pointer; transition:0.3s;
+    }
+    button.secondary{ background:#eef2ff; color:var(--primary); border:1px solid rgba(43,124,255,0.3);}
+    button:hover{ opacity:0.9; }
+
+    .card{ background:var(--card); border-radius:var(--radius); padding:16px; box-shadow:0 8px 24px rgba(11,23,43,0.06); margin-bottom:20px; }
+    .meta{ font-size:13px; color:var(--muted); margin-top:4px; }
+
+    table{
+        width:100%; border-collapse:collapse; font-size:14px;
+    }
+    thead th{
+        background: #eef6ff; padding:12px; text-align:center; font-weight:700; border-bottom:1px solid #e6e9ef;
+    }
+    tbody td{ padding:10px; text-align:center; border-bottom:1px solid #f1f5f9; vertical-align:middle; }
+    .empty{ text-align:center; color:var(--muted); padding:16px; }
+    #map{ height: calc(100vh - 250px);; width:100%; border-radius:var(--radius); margin-top:20px; }
+
+    /* Responsive */
+    @media (max-width:768px){
+        header{ flex-direction:column; align-items:flex-start; }
+        .input, select{ min-width:140px; flex:1; }
+    }
+
+    /* Loader (cercle animé) */
+        #loader {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            border: 8px solid #f3f3f3;
+            border-top: 8px solid var(--primary);
+            border-radius: 50%;
+            width: 60px;
+            height: 60px;
+            animation: spin 1s linear infinite;
+            z-index: 9999;
+        }
+
+        @keyframes spin {
+            0% { transform: translate(-50%, -50%) rotate(0deg); }
+            100% { transform: translate(-50%, -50%) rotate(360deg); }
+        }
+
+    /* --- ZÉBRAGE DU TABLEAU --- */
+    tbody tr:nth-child(odd) {
+        background-color: #f9fbff; /* Lignes impaires : bleu très clair */
+    }
+
+    tbody tr:nth-child(even) {
+        background-color: #ffffff; /* Lignes paires : blanc */
+    }
+
+    /* --- EFFET AU SURVOL --- */
+    tbody tr:hover {
+        background-color: #eaf1ff; /* Bleu clair au survol */
+        transition: background-color 0.2s ease;
+        cursor: pointer;
+    }
+
+    /* --- MISE EN ÉVIDENCE DES LIGNES AVEC DISTANCE > 300m --- */
+    tbody tr.distance-elevee {
+        background-color: #ffe6e6 !important; /* Rouge clair */
+        color: #b30000; /* Texte rouge foncé */
+        font-weight: bold;
+    }
+
+
+    /* ===== MODAL STYLE ===== */
+    .modal {
+        display: none;
+        position: fixed;
+        z-index: 99999;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.5);
+    }
+
+    .modal-content {
+        background: white;
+        padding: 25px;
+        width: 600px;
+        max-width: 95%;
+        margin: 80px auto;
+        border-radius: 15px;
+        box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+        position: relative;   /* IMPORTANT */
+    }
+
+    .close {
+        position: absolute;
+        top: 15px;
+        right: 20px;
+        font-size: 28px;
+        cursor: pointer;
+        font-weight: bold;
+        color: #444;
+        transition: 0.2s;
+    }
+
+    .close:hover {
+        color: #ef4444;
+        transform: scale(1.1);
+    }
+
+
+    #dayCountTable {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 20px;
+    }
+
+    #dayCountTable th {
+        background: #eef6ff;
+        padding: 10px;
+    }
+
+    #dayCountTable td {
+        padding: 10px;
+        border-bottom: 1px solid #ddd;
+        text-align: center;
+    }
+
+
+    /* ===== MODAL SCROLLABLE ===== */
+    .modal-scroll {
+        max-height: 85vh;           /* 85% de la hauteur écran */
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+    }
+
+    /* Zone scrollable interne */
+    .modal-scroll-body {
+        overflow-y: auto;
+        padding-right: 8px;
+        margin-top: 10px;
+        flex: 1;
+    }
+
+    /* Scroll stylé (Chrome / Edge) */
+    .modal-scroll-body::-webkit-scrollbar {
+        width: 8px;
+    }
+    .modal-scroll-body::-webkit-scrollbar-thumb {
+        background: #2b7cff;
+        border-radius: 8px;
+    }
+    .modal-scroll-body::-webkit-scrollbar-track {
+        background: #e6edff;
+    }
+
+
+
+    /* ===== Totaux Modal ===== */
+    .totals-box {
+        margin-top: 20px;
+        padding: 15px;
+        border-radius: 12px;
+        background: #f7faff;
+        border: 1px solid #d6e6ff;
+        font-size: 16px;
+    }
+
+    .totals-box p {
+        margin: 6px 0;
+    }
+
+
+    th {
+    cursor: pointer;
+    user-select: none;
+    }
+
+    .sort-indicator {
+        font-size: 0.7em;
+        margin-left: 5px;
+    }
+    
+
+
+    /* ================= ULTRA PRINT PRO ================= */
+        .print-header,
+        .print-footer{
+            display:none;
+        }
+
+        @media print{
+
+            @page{
+                size:A4 landscape;
+                margin:12mm;
+            }
+
+            body{
+                background:white;
+            }
+
+            header,
+            #map,
+            #loader,
+            button,
+            .controls,
+            #dayModal{
+                display:none !important;
+            }
+
+            #printArea{
+                display:block;
+            }
+
+            /* HEADER PRINT */
+            .print-header{
+                display:flex;
+                align-items:center;
+                justify-content:space-between;
+                margin-bottom:10px;
+            }
+
+            .print-logo{
+                height:55px;
+            }
+
+            .print-title-box{
+                text-align:center;
+                flex:1;
+                font-weight:bold;
+            }
+
+            .print-main-title{
+                font-size:20px;
+            }
+
+            .print-sub{
+                font-size:12px;
+                margin-top:3px;
+            }
+
+            /* FOOTER PRINT */
+            .print-footer{
+                display:block;
+                position:fixed;
+                bottom:5mm;
+                left:0;
+                right:0;
+                font-size:11px;
+                color:#444;
+            }
+
+            .footer-left{
+                float:left;
+            }
+
+            .footer-right{
+                float:right;
+            }
+
+            .page-number:after{
+                content:"Page " counter(page) " / " counter(pages);
+            }
+
+            /* TABLE */
+            .table-wrapper{
+                max-height:none !important;
+                overflow:visible !important;
+                border:none;
+            }
+
+            table{
+                width:100%;
+                font-size:10.5px;
+                border-collapse:collapse;
+            }
+
+            th{
+                background:#eee !important;
+                color:black !important;
+            }
+
+            th,td{
+                border:1px solid #888;
+                padding:4px;
+            }
+
+            tr{
+                page-break-inside:avoid;
+            }
+
+            thead{
+                display:table-header-group;
+            }
+        }
+
+
+    </style>
+
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
+
+    </head>
+
+    <!-- code pour controler les inactivites -->
+    <!--<script src="js/logout.js"></script>-->
+
+    <body>
+    <div class="container">
+        <header>
+            <div>
+                <h1>📍 Détails des Relèves</h1>
+                <div class="meta">Choisir un releveur ou saisir son matricule, puis cliquer 🔎 Rechercher.</div>
+            </div>
+            <div class="controls">
+                <select id="releveurSelect" class="input">
+                    <option value="">— Charger les releveurs —</option>
+                </select>
+                <input id="matriculeInput"
+                class="input"
+                type="text"
+                maxlength="4"
+                inputmode="numeric"
+                pattern="[0-9]{4}"
+                placeholder="Matricule (4 chiffres)"
+                title="Saisir exactement 4 chiffres" />
+
+                <button id="searchBtn">🔎 Rechercher</button>
+
+                <div id="totauxBox" style="
+                    background:#eef6ff;
+                    padding:10px 14px;
+                    border-radius:10px;
+                    border:1px solid #c7ddff;
+                    font-size:14px;
+                    min-width:240px;">                
+                    <div><b>Total à relever :</b> <span id="totalAReleverMini">—</span></div>
+                    <div><b>Total relevés :</b> <span id="totalReleMini">—</span></div>
+                    <div><b>Total restant :</b> <span id="totalRestMini">—</span></div>
+                </div>
+
+
+                <input id="abonneeInput" class="input" type="text"
+                placeholder="Rechercher un abonné (nom ou référence)" />
+                <button id="abonneeSearchBtn">🔍 Abonné</button>
+                <button onclick="resetAbonnee()">🔄 Tous</button>
+                
+                <button id="sortDateBtn">📅 Trier par Date</button>
+                <button id="sortTimeBtn">⏰ Trier par Heure</button>
+
+                <div style="position: relative;">
+                <button id="filterBtn">🔽 Filtrer par Type</button>
+                <select id="filterSelect" style="display:none; position:absolute; top:45px; left:0; background:white; border:1px solid #ccc; border-radius:8px; padding:8px;">
+                    <option value="">— Choisir un filtre —</option>
+                    <option value="indexes">✅ Visités et indexés</option>
+                    <option value="non_indexes">⚠️ Visités non indexés</option>
+                    <option value="anomalie">❗ Avec anomalie</option>
+                    <option value="restant">🕒 Total restant</option>
+                </select>
+
+                <select id="anomalySelect" style="display:none; position:absolute; top:90px; left:0; background:white; border:1px solid #ccc; border-radius:8px; padding:8px;">
+                </select>
+
+                </div>
+
+                <button id="exportExcelBtn" style="background:#16a34a;">📄 Export Excel</button>
+                <!-- <button id="exportPdfBtn">🖨 Export PDF</button>-->
+
+                <button onclick="printTableUltra()" style="background:#16a34a;">
+                    🖨 Impression PDF
+                </button>
+
+
+                <button id="clearBtn" style="background-color:#b91c1c;">✖ Effacer</button>
+                <button onclick="window.location.href='accueil.html'" style="background-color:#b91c1c;">Retour</button>
+                <span id="totalReleves" style="font-weight:bold; color:#000000; margin-left:10px;">Total : 0 relèves</span>
+
+                <!-- <input type="date" id="dateFilter" class="input" />-->
+                <!-- <button id="countByDateBtn">📊 Voir relevés sur une date</button>-->
+                <button id="countByDayBtn">📅 Trier par date de relèves</button>
+                <button onclick="window.location.href='grouper-par-bordereau.html'" style=" background-color:#16a34a">
+                🔄 Grouper par Zone</button>
+                <!--<span id="countResult" style="font-weight:bold; color:#2563eb;"></span>-->
+                <strong><span id="countResult" style="font-weight:bold; color:#b91c1c;"></span></strong>
+
+            </div>
+
+        </header>
+
+        <section class="card" id="printArea">
+            <!-- HEADER IMPRESSION -->
+            <div class="print-header">
+
+                <img src="images/logos-NDE.png" class="print-logo">
+
+                <div class="print-title-box">
+                    <div class="print-main-title">RAPPORT DES RELÈVES</div>
+                    <div class="print-sub" id="printReleveur"></div>
+                    <div class="print-sub" id="printDate"></div>
+                    <div class="print-sub" id="printTotals"></div>
+                </div>
+
+            </div>
+
+            <div class="meta" style="margin-bottom:10px;">Résultats :</div>
+            <!-- Zone scrollable -->
+            <div class="table-wrapper">
+            <table id="resultTable">
+                <thead>
+                    <tr>
+                        <th data-sort="idinrp">ID<span class="sort-indicator"></span></th>
+                        <th data-sort="perirp">Période <span class="sort-indicator"></span></th>
+                        <th data-sort="daterp">Date <span class="sort-indicator"></span></th>
+                        <th data-sort="heurrp">Heure <span class="sort-indicator"></span></th>
+                        <th data-sort="referp">Référence <span class="sort-indicator"></span></th>
+                        <th data-sort="nomurp">Abonné <span class="sort-indicator"></span></th>
+                        <th data-sort="aindrp">Ancien index <span class="sort-indicator"></span></th>
+                        <th data-sort="indsrp">Nouvel index <span class="sort-indicator"></span></th>
+                        <th data-sort="anomrp">Anomalie <span class="sort-indicator"></span></th>
+                        <th data-sort="gps">GPS Releveur <span class="sort-indicator"></span></th>
+                        <th data-sort="gps">GPS Compteur <span class="sort-indicator"></span></th>
+                        <th data-sort="distance">Distance (m) <span class="sort-indicator"></span></th>
+                        <th data-sort="distance">Photos <span class="sort-indicator"></span></th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody">
+                    <tr><td colspan="13" class="empty">Aucun relevé — sélectionne un releveur ou entre un matricule</td></tr>
+                </tbody>
+            </table>
+            </div>
+        </section>
+
+        <section class="card">
+            <div id="map"></div>
+        </section>
+    </div>
+
+    <div id="loader"></div>
+
+    <!-- ===== MODAL : Nombre de relèves par jour ===== -->
+    <div id="dayModal" class="modal">
+        <div class="modal-content modal-scroll">
+            <span id="closeModal" class="close">&times;</span>
+
+            <h2>📅 Nombre de relèves par jour</h2>
+
+            <!-- ===== OUTILS MODAL ===== -->
+            <div style="
+                display:flex;
+                flex-wrap:wrap;
+                gap:10px;
+                align-items:center;
+                margin:12px 0;
+            ">
+
+                <!-- 🔢 Compteur jours -->
+                <div id="daysCounter" style="
+                    font-weight:bold;
+                    color:#2563eb;
+                ">
+                    Nombre de jours : 0
+                </div>
+
+                <!-- 🔍 Recherche date -->
+                <input type="date" id="modalDateFilter" class="input" style="max-width:200px;">
+
+                <!-- 📄 Export PDF -->
+                <button id="exportModalPdfBtn" style="background:#16a34a;">
+                    📄 Export PDF
+                </button>
+
+            </div>
+
+
+            <div class="modal-scroll-body">
+
+                <table id="dayCountTable">
+                <thead>
+                    <tr>
+                    <th>Matricule</th>
+                    <th>Date</th>
+                    <th>Nombre de relèves</th>
+                    </tr>
+                </thead>
+                <tbody id="dayCountBody">
+                </tbody>
+                </table>
+
+            </div>
+
+            <!-- ===== Résumé Totaux ===== -->
+            <div id="resumeTotals" class="totals-box">
+                <p><b>Total à relever :</b> <span id="totalARelever">0</span></p>
+                <p><b>Total effectué :</b> <span id="totalEffectue">0</span></p>
+                <p><b>Total restant :</b> <span id="totalRestant">0</span></p>
+                <p><strong>Nom :</strong> <span id="nomReleveur"></span></p>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- JS & Leaflet -->
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+    <script>
+    (async function(){
+    const API_RELEVEURS = "http://41.138.61.43:8082/api/wseentrele";
+    const API_RELEVE = "http://41.138.61.43:8081/api/wseentrelec/"; // append matricule
+
+    const select = document.getElementById('releveurSelect');
+    const input = document.getElementById('matriculeInput');
+    // Autoriser uniquement chiffres + max 4 caractères
+    input.addEventListener("input", () => {
+        input.value = input.value.replace(/\D/g, "").slice(0, 4);
+    });
+
+    const abonneeInput = document.getElementById("abonneeInput");
+    const abonneeSearchBtn = document.getElementById("abonneeSearchBtn");
+
+
+    const btn = document.getElementById('searchBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const tableBody = document.getElementById('tableBody');
+
+    function escapeHtml(str){ return str?String(str).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"):""; }
+
+   //========================================23.10.2025========================================
+
+    /**
+     * Retourne la distance en mètres entre (lat1,lon1) et (lat2,lon2)
+     * Utilise Vincenty (ellipsoïde WGS-84). Si non convergence, retombe sur Haversine.
+     * Gère les valeurs en string, avec virgule ou chaine vide, et détecte inversion lat/lon.
+     */
+    function parseCoord(v) {
+        if (v === null || v === undefined) return null;
+        if (typeof v === 'number') return v;
+        // remplacer virgule décimale par point et supprimer espaces
+        const s = String(v).trim().replace(',', '.');
+        if (s === '' || s.toLowerCase() === 'nan') return null;
+        const n = Number(s);
+        return isNaN(n) ? null : n;
+    }
+
+    function maybeSwapLatLon(lat, lon) {
+        // Si lat hors plage [-90,90] mais lon dans [-90,90], on suppose qu'ils sont inversés.
+        if ((lat === null || lat < -90 || lat > 90) && (lon !== null && lon >= -90 && lon <= 90)) {
+            return { lat: lon, lon: lat };
+        }
+        return { lat, lon };
+    }
+
+    function haversineDistance(lat1, lon1, lat2, lon2) {
+        // Haversine de secours (mètres)
+        const toRad = x => x * Math.PI / 180;
+        if ([lat1, lon1, lat2, lon2].some(v => v === null || v === undefined || isNaN(v))) return null;
+        const R = 6371000;
+        const dLat = toRad(lat2 - lat1);
+        const dLon = toRad(lon2 - lon1);
+        const φ1 = toRad(lat1), φ2 = toRad(lat2);
+        const a = Math.sin(dLat / 2) ** 2 + Math.cos(φ1) * Math.cos(φ2) * Math.sin(dLon / 2) ** 2;
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return Math.round(R * c);
+    }
+
+    function haversine(lat1_, lon1_, lat2_, lon2_) {
+        // parse et validation
+        let lat1 = parseCoord(lat1_), lon1 = parseCoord(lon1_), lat2 = parseCoord(lat2_), lon2 = parseCoord(lon2_);
+        if ([lat1, lon1, lat2, lon2].some(v => v === null)) return null;
+
+        // détecte inversion éventuelle (tes champs gpsxrp/gpsyrp peuvent être inversés selon la source)
+        ({ lat: lat1, lon: lon1 } = maybeSwapLatLon(lat1, lon1));
+        ({ lat: lat2, lon: lon2 } = maybeSwapLatLon(lat2, lon2));
+
+        // maintenant validator final
+        if ([lat1, lon1, lat2, lon2].some(v => isNaN(v))) return null;
+        // limites plausibles
+        if (lat1 < -90 || lat1 > 90 || lat2 < -90 || lat2 > 90) return null;
+        if (lon1 < -180 || lon1 > 180 || lon2 < -180 || lon2 > 180) return null;
+
+        // Vincenty (direct/ inverse simplified) - inverse: distance between two points on WGS-84 ellipsoid
+        // Constants WGS-84
+        const a = 6378137.0; // semi-major axis
+        const f = 1 / 298.257223563; // flattening
+        const b = (1 - f) * a;
+
+        const toRad = d => d * Math.PI / 180;
+        const φ1 = toRad(lat1), φ2 = toRad(lat2);
+        const L = toRad(lon2 - lon1);
+
+        const U1 = Math.atan((1 - f) * Math.tan(φ1));
+        const U2 = Math.atan((1 - f) * Math.tan(φ2));
+        const sinU1 = Math.sin(U1), cosU1 = Math.cos(U1);
+        const sinU2 = Math.sin(U2), cosU2 = Math.cos(U2);
+
+        let λ = L;
+        let λPrev;
+        let iterLimit = 100;
+        let sinλ, cosλ, sinσ, cosσ, σ, sinα, cos2α, cos2σm, C;
+
+        do {
+            sinλ = Math.sin(λ);
+            cosλ = Math.cos(λ);
+            sinσ = Math.sqrt(
+                (cosU2 * sinλ) * (cosU2 * sinλ) +
+                (cosU1 * sinU2 - sinU1 * cosU2 * cosλ) * (cosU1 * sinU2 - sinU1 * cosU2 * cosλ)
+            );
+            if (sinσ === 0) return 0; // coïncident points
+            cosσ = sinU1 * sinU2 + cosU1 * cosU2 * cosλ;
+            σ = Math.atan2(sinσ, cosσ);
+            sinα = (cosU1 * cosU2 * sinλ) / sinσ;
+            cos2α = 1 - sinα * sinα;
+            cos2σm = (cos2α === 0) ? 0 : (cosσ - 2 * sinU1 * sinU2 / cos2α);
+            C = (f / 16) * cos2α * (4 + f * (4 - 3 * cos2α));
+            λPrev = λ;
+            λ = L + (1 - C) * f * sinα * (σ + C * sinσ * (cos2σm + C * cosσ * (-1 + 2 * cos2σm * cos2σm)));
+        } while (Math.abs(λ - λPrev) > 1e-12 && --iterLimit > 0);
+
+        if (iterLimit === 0) {
+            // pas de convergence -> fallback à Haversine
+            return haversineDistance(lat1, lon1, lat2, lon2);
+        }
+
+        const uSq = cos2α * (a * a - b * b) / (b * b);
+        const A = 1 + (uSq / 16384) * (4096 + uSq * (-768 + uSq * (320 - 175 * uSq)));
+        const B = (uSq / 1024) * (256 + uSq * (-128 + uSq * (74 - 47 * uSq)));
+        const Δσ = B * sinσ * (cos2σm + (B / 4) * (cosσ * (-1 + 2 * cos2σm * cos2σm) - (B / 6) * cos2σm * (-3 + 4 * sinσ * sinσ) * (-3 + 4 * cos2σm * cos2σm)));
+        const s = b * A * (σ - Δσ);
+
+        return Math.round(s); // distance en mètres
+    }
+
+    /* --- Utilisation dans ton code actuel ---
+    Remplace les appels à haversine(...) par vincentyDistance(...)
+
+    Exemple :
+    const lonR = parseFloat(r.gpsxrp), latR = parseFloat(r.gpsyrp);
+    const lonC = r.gprxrp ? parseFloat(r.gprxrp) : null, latC = r.gpryrp ? parseFloat(r.gpryrp) : null;
+    const dist = vincentyDistance(latR, lonR, latC, lonC);
+    --- */
+
+
+   //========================================23.10.2025========================================
+
+
+    // Charger releveurs
+    async function loadReleveurs(){
+        try{
+            const res=await fetch(API_RELEVEURS);
+            const data=await res.json();
+            select.innerHTML='<option value="">— Choisir un releveur —</option>';
+            data.sort((a,b)=>a.matrire.localeCompare(b.matrire)).forEach(r=>{
+                const opt=document.createElement('option');
+                opt.value=r.matrire;
+                opt.textContent=`${r.matrire} — ${r.nomprre}`;
+                select.appendChild(opt);
+            });
+        }catch(err){ console.error(err); select.innerHTML='<option>Erreur chargement</option>'; }
+    }
+
+    // Afficher tableau
+function renderTable(rows){
+
+    tableBody.innerHTML = "";
+
+    if (!rows || rows.length === 0) {
+        tableBody.innerHTML = '<tr><td colspan="13" class="empty">Aucune donnée</td></tr>';
+        return;
+    }
+
+    rows.forEach((r) => {
+
+        const latR = parseFloat(r.gpsxrp);
+        const lonR = parseFloat(r.gpsyrp);
+        const latC = parseFloat(r.gpryrp);
+        const lonC = parseFloat(r.gprxrp);
+
+        let dist = null;
+        const gpsOk = !isNaN(latR) && !isNaN(lonR) && !isNaN(latC) && !isNaN(lonC);
+
+        if (gpsOk) {
+            dist = haversine(latR, lonR, latC, lonC);
+        }
+
+        // 🔹 Format heure (70556 → 07:05:56)
+        let heureFormatee = "";
+        if (r.heurrp && Number(r.heurrp) > 0) {
+            const str = r.heurrp.toString().padStart(6, '0');
+            heureFormatee = `${str.substring(0,2)}:${str.substring(2,4)}:${str.substring(4,6)}`;
+        }
+
+        // 🔹 Construction URL photo
+        let photoUrl = "";
+        if (r.photrp && r.photrp.trim() !== "") {
+            photoUrl = "http://41.138.61.43:8095/" + r.perirp + "/" + r.photrp.replace("releveur/", "");
+        }
+
+        const photoHtml = photoUrl
+            ? `<a href="${photoUrl}" target="_blank">
+                    <img src="${photoUrl}" 
+                        style="width:60px;height:45px;object-fit:cover;border-radius:6px;border:1px solid #ccc;">
+            </a>`
+            : "—";
+
+        const tr = document.createElement('tr');
+
+        // 🔴 Ligne rouge si daterp = 0
+        if (Number(r.daterp) === 0) {
+            tr.style.backgroundColor = "#ffe6e6";
+            tr.style.color = "#b91c1c";
+            tr.style.fontWeight = "bold";
+        }
+
+        tr.innerHTML = `
+            <td>${escapeHtml(r.idinrp)}</td>
+            <td>${escapeHtml(r.perirp)}</td>
+            <td>${r.daterp == 0 ? '<b style="color:red">0</b>' : escapeHtml(r.daterp)}</td>
+            <td>${escapeHtml(heureFormatee)}</td>
+            <td>${escapeHtml(r.referp)}</td>
+            <td style="text-align:left">${escapeHtml(r.nomurp)}</td>
+            <td>${escapeHtml(r.aindrp)}</td>
+            <td>${escapeHtml(r.indsrp)}</td>
+            <td>${escapeHtml(r.anomrp)}</td>
+            <td>${gpsOk ? latR + ", " + lonR : "N/A"}</td>
+            <td>${gpsOk ? latC + ", " + lonC : "N/A"}</td>
+            <td style="color:${dist !== null && dist > 300 ? 'red' : 'black'};
+                font-weight:${dist !== null && dist > 300 ? 'bold' : 'normal'};">
+                ${dist !== null ? dist + " m" : "N/A"}
+            </td>
+            <td>${photoHtml}</td>
+        `;
+
+        // ⚡ Click uniquement si GPS valide
+        tr.addEventListener('click', () => {
+
+            if (!gpsOk) {
+                alert("Coordonnées GPS incomplètes — impossible d'afficher sur la carte.");
+                return;
+            }
+
+            // Nettoyage carte
+            markers.forEach(m => map.removeLayer(m));
+            lines.forEach(l => map.removeLayer(l));
+            markers = [];
+            lines = [];
+
+            const dist = haversine(latR, lonR, latC, lonC);
+
+            // Marker Releveur
+            const markerReleveur = L.marker([latR, lonR])
+                .addTo(map)
+                .bindPopup(`
+                    <b>Releveur</b><br>
+                    Matricule: ${r.matrrp || ""}<br>
+                    GPS: ${latR}, ${lonR}
+                `);
+            markers.push(markerReleveur);
+
+            // Marker Compteur
+            const markerCompteur = L.marker([latC, lonC], {
+                icon: L.icon({
+                    iconUrl: 'images/pin.png',
+                    iconSize: [25, 41],
+                    iconAnchor: [12, 41]
+                })
+            })
+            .addTo(map)
+            .bindPopup(`
+                <b>Compteur</b><br>
+                Référence: ${r.referp || ""}<br>
+                Abonné: ${r.nomurp || ""}<br>
+                Ancien Index: ${r.aindrp || ""}<br>
+                Nouvel Index: ${r.indsrp || ""}<br>
+                GPS: ${latC}, ${lonC}
+            `);
+            markers.push(markerCompteur);
+
+            // Ligne
+            const line = L.polyline([[latR, lonR], [latC, lonC]], { color: 'blue', weight: 3 })
+                .addTo(map);
+            lines.push(line);
+
+            // Distance au milieu
+            const midLat = (latR + latC) / 2;
+            const midLon = (lonR + lonC) / 2;
+
+            L.popup({ closeButton: false })
+                .setLatLng([midLat, midLon])
+                .setContent(`<b>Distance :</b> ${dist} m`)
+                .openOn(map);
+
+            // Zoom auto
+            map.fitBounds([[latR, lonR], [latC, lonC]], { padding: [50, 50] });
+        });
+
+        tableBody.appendChild(tr);
+    });
+}
+
+
+//===================================05.02.2026=======================================
+// Tri général par colonne
+document.querySelectorAll('thead th[data-sort]').forEach(th => {
+    let asc = true;
+    th.addEventListener('click', () => {
+        const key = th.getAttribute('data-sort');
+
+        if (!currentRows || currentRows.length === 0) return;
+
+        // Tri des données
+        currentRows.sort((a, b) => {
+            let valA, valB;
+
+            switch(key) {
+                case 'heurrp':
+                    valA = Number(a.heurrp || 0);
+                    valB = Number(b.heurrp || 0);
+                    break;
+                case 'distance':
+                    const latR_a = parseFloat(a.gpsxrp), lonR_a = parseFloat(a.gpsyrp);
+                    const latC_a = parseFloat(a.gpryrp), lonC_a = parseFloat(a.gprxrp);
+                    valA = haversine(latR_a, lonR_a, latC_a, lonC_a) || 0;
+
+                    const latR_b = parseFloat(b.gpsxrp), lonR_b = parseFloat(b.gpsyrp);
+                    const latC_b = parseFloat(b.gpryrp), lonC_b = parseFloat(b.gprxrp);
+                    valB = haversine(latR_b, lonR_b, latC_b, lonC_b) || 0;
+                    break;
+                default:
+                    valA = (a[key] || "").toString().toLowerCase();
+                    valB = (b[key] || "").toString().toLowerCase();
+            }
+
+            if (typeof valA === "number" && typeof valB === "number") return asc ? valA - valB : valB - valA;
+            if (typeof valA === "string" && typeof valB === "string") return asc ? valA.localeCompare(valB) : valB.localeCompare(valA);
+            return 0;
+        });
+
+        asc = !asc; // inverser ordre
+
+        // Mettre à jour les symboles
+        document.querySelectorAll('thead th .sort-indicator').forEach(span => span.textContent = '');
+        const indicator = th.querySelector('.sort-indicator');
+        indicator.textContent = asc ? '▲' : '▼'; // ▲ croissant, ▼ décroissant
+
+        renderTable(currentRows);
+    });
+});
+
+
+//===================================05.02.2026=======================================
+
+
+// Tri croissant/décroissant
+let dateAsc = true, timeAsc = true;
+
+document.getElementById('sortDateBtn').addEventListener('click', () => {
+    if (!currentRows.length) return alert("Aucune donnée à trier !");
+    currentRows.sort((a, b) => {
+        const da = new Date(a.daterp), db = new Date(b.daterp);
+        return dateAsc ? da - db : db - da;
+    });
+    dateAsc = !dateAsc;
+    renderTable(currentRows);
+});
+
+document.getElementById('sortTimeBtn').addEventListener('click', () => {
+    if (!currentRows.length) return alert("Aucune donnée à trier !");
+    currentRows.sort((a, b) => {
+        const ha = Number(a.heurrp || 0), hb = Number(b.heurrp || 0);
+        return timeAsc ? ha - hb : hb - ha;
+    });
+    timeAsc = !timeAsc;
+    renderTable(currentRows);
+});
+
+
+// ================== FILTRAGE PERSONNALISÉ ==================
+const filterBtn = document.getElementById('filterBtn');
+const filterSelect = document.getElementById('filterSelect');
+let currentRows = []; // contiendra les données courantes affichées
+
+
+//const dateInput = document.getElementById("dateFilter");
+//const countBtn = document.getElementById("countByDateBtn");
+const countResult = document.getElementById("countResult");
+
+
+//comptage des relèves par date
+
+        /*countBtn.addEventListener("click", () => {
+        if (!currentRows || currentRows.length === 0) {
+            alert("Aucune donnée chargée.");
+            return;
+        }
+
+        if (!dateInput.value) {
+            alert("Veuillez sélectionner une date.");
+            return;
+        }
+
+        // Convertir YYYY-MM-DD → YYYYMMDD
+        const selectedDate = dateInput.value.replaceAll("-", "");
+
+        // Filtrer les relèves du jour
+        const relievesDuJour = currentRows.filter(r =>
+            String(r.daterp) === selectedDate
+        );
+
+        countResult.textContent =
+            `Relèves effectuées le ${dateInput.value} par ce releveur est : ${relievesDuJour.length}`;
+    });*/
+
+
+
+    let releveursTotals = [];
+
+    async function chargerReleveursTotals() {
+        const res = await fetch("http://41.138.61.43:8081/api/wseentrelec");
+        releveursTotals = await res.json();
+    }
+
+    chargerReleveursTotals();
+
+    //Fonction d’affichage des totaux
+
+    function afficherTotauxMini(matricule) {
+
+        if (!releveursTotals || releveursTotals.length === 0) return;
+
+        const releveur = releveursTotals.find(r => r.matriaa === matricule);
+
+        if (releveur) {
+            document.getElementById("totalAReleverMini").textContent = releveur.nbretotal;
+            document.getElementById("totalReleMini").textContent     = releveur.nbrerele;
+            document.getElementById("totalRestMini").textContent     = releveur.nbrerest;
+        } else {
+            document.getElementById("totalAReleverMini").textContent = "—";
+            document.getElementById("totalReleMini").textContent     = "—";
+            document.getElementById("totalRestMini").textContent     = "—";
+        }
+    }
+
+
+
+
+
+// =================== COMPTER RELÈVES PAR JOUR MODAL===================
+
+        const countByDayBtn = document.getElementById("countByDayBtn");
+        const modal = document.getElementById("dayModal");
+        const closeModal = document.getElementById("closeModal");
+        const dayCountBody = document.getElementById("dayCountBody");
+
+        const totalAReleverSpan = document.getElementById("totalARelever");
+        const totalEffectueSpan = document.getElementById("totalEffectue");
+        const totalRestantSpan  = document.getElementById("totalRestant");
+
+
+
+        countByDayBtn.addEventListener("click", async () => {
+
+            if (!currentRows || currentRows.length === 0) {
+                alert("Aucune donnée chargée !");
+                return;
+            }
+
+            // Matricule actuel
+            const matricule = input.value || select.value;
+
+            // ===============================
+            // 1. Regroupement des relèves par date
+            // ===============================
+            const countByDate = {};
+
+            currentRows.forEach(r => {
+
+                const date = String(r.daterp);
+
+                // ❌ Ignorer date = 0
+                if (Number(date) === 0) return;
+
+                if (!countByDate[date]) {
+                    countByDate[date] = 0;
+                }
+
+                countByDate[date]++;
+            });
+
+
+            // Remplir tableau modal
+            dayCountBody.innerHTML = "";
+
+
+            // 🔴 Vérifier s'il existe des relèves avec date = 0
+            const dateZeroCount = currentRows.filter(r => Number(r.daterp) === 0).length;
+
+            if (dateZeroCount > 0) {
+
+                const trZero = document.createElement("tr");
+                trZero.style.backgroundColor = "#ffe6e6";
+                trZero.style.color = "#b91c1c";
+                trZero.style.fontWeight = "bold";
+
+                trZero.innerHTML = `
+                    <td>${matricule}</td>
+                    <td>0</td>
+                    <td>${dateZeroCount}</td>
+                `;
+
+                dayCountBody.appendChild(trZero);
+            }
+
+
+            Object.keys(countByDate).sort().forEach(date => {
+
+                const tr = document.createElement("tr");
+                tr.innerHTML = `
+                    <td>${matricule}</td>
+                    <td>${date}</td>
+                    <td><b>${countByDate[date]}</b></td>
+                `;
+                dayCountBody.appendChild(tr);
+            });
+
+        // 🔢 Compteur dynamique du nombre de jours
+        document.getElementById("daysCounter").textContent =
+            "Nombre de jours : " + Object.keys(countByDate).length;
+
+
+        // ===============================
+        // Totaux selon matricule sélectionné (optimisé)
+        // ===============================
+        try {
+
+            // 🔥 Vérifier que la liste est bien chargée
+            if (!releveursTotals || releveursTotals.length === 0) {
+                await chargerReleveursTotals();
+            }
+
+            // Trouver le releveur sélectionné
+            const releveur = releveursTotals.find(r => r.matriaa === matricule);
+
+            console.log("Releveur trouvé :", releveur);
+
+            if (releveur) {
+
+                totalAReleverSpan.textContent = releveur.nbretotal;
+                totalEffectueSpan.textContent = releveur.nbrerele;
+                totalRestantSpan.textContent  = releveur.nbrerest;
+
+                document.getElementById("nomReleveur").textContent = releveur.nomaa;
+
+            } else {
+
+                totalAReleverSpan.textContent = "Non trouvé";
+                totalEffectueSpan.textContent = "Non trouvé";
+                totalRestantSpan.textContent  = "Non trouvé";
+
+                document.getElementById("nomReleveur").textContent = "Non trouvé";
+            }
+
+        } catch (error) {
+
+            console.error("Erreur Totaux :", error);
+
+            totalAReleverSpan.textContent = "Erreur";
+            totalEffectueSpan.textContent = "Erreur";
+            totalRestantSpan.textContent  = "Erreur";
+
+            document.getElementById("nomReleveur").textContent = "Erreur";
+        }
+
+            // ===============================
+            // 3. Afficher modal
+            // ===============================
+            modal.style.display = "block";
+        });
+
+         // Fermer modal
+        closeModal.addEventListener("click", () => {
+            modal.style.display = "none";
+        });
+
+        // Fermer si clic extérieur
+        window.addEventListener("click", (e) => {
+            if (e.target === modal) {
+                modal.style.display = "none";
+            }
+        });
+
+        // 🔍 Recherche par date dans le modal
+        document.getElementById("modalDateFilter").addEventListener("input", function () {
+
+            const selected = this.value.replaceAll("-", "");
+            const rows = document.querySelectorAll("#dayCountTable tbody tr");
+
+            rows.forEach(row => {
+                const dateCell = row.children[1].textContent.trim();
+                row.style.display = (!selected || dateCell === selected) ? "" : "none";
+            });
+
+        });
+
+        // 📄 Export PDF du MODAL
+        document.getElementById("exportModalPdfBtn").addEventListener("click", () => {
+
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF("portrait");
+
+            doc.text("Statistiques journalières", 14, 12);
+
+            doc.autoTable({
+                html: "#dayCountTable",
+                startY: 18,
+                styles: { fontSize: 10 }
+            });
+
+            doc.save("statistiques_journalieres.pdf");
+        });
+
+
+    
+
+// 👉 Quand on clique sur le bouton "Trier", on affiche / cache le menu déroulant
+filterBtn.addEventListener('click', () => {
+    filterSelect.style.display = (filterSelect.style.display === 'none' || filterSelect.style.display === '') 
+        ? 'block' 
+        : 'none';
+});
+
+//=======================21/01/2026===================================
+
+const anomalyItems = [
+    { description: 'Tous', id: 'ALL' },
+
+    { description: 'Alim. directe',                  id: 'AD' },
+    { description: 'Ancien modèle compteur',         id: 'AM' },
+    { description: 'Arrêt en Galva',                 id: 'AG' },
+    { description: 'Auto-relève',                    id: 'AR' },
+
+    { description: 'Branchement coupé',              id: 'BC' },
+    { description: 'Branchement détruit',            id: 'BD' },
+
+    { description: 'Changement d’activité',          id: 'CH' },
+    { description: 'Client absent',                  id: 'AB' },
+
+    { description: 'Compteur absent',                id: 'CT' },
+    { description: 'Compteur bloqué',                id: 'CB' },
+    { description: 'Compteur cassé',                 id: 'CA' },
+    { description: 'Compteur coupé',                 id: 'CP' },
+    { description: 'Compteur défectueux',            id: 'CF' },
+    { description: 'Compteur déposé',                id: 'CD' },
+    { description: 'Compteur enterré',               id: 'CE' },
+    { description: 'Compteur étalon',                id: 'ET' },
+    { description: 'Compteur inaccessible',          id: 'CI' },
+    { description: 'Compteur inversé',               id: 'CV' },
+    { description: 'Compteur prépayé',               id: 'PP' },
+    { description: 'Compteur repassé à zéro',        id: 'CZ' },
+
+    { description: 'Diamètre compteur inexact',      id: 'DI' },
+
+    { description: 'Erreur relevé d’index',          id: 'ER' },
+    { description: 'Existence de forage',            id: 'EF' },
+
+    { description: 'Fausse codification',            id: 'FC' },
+    { description: 'Fraude',                         id: 'FR' },
+    { description: 'Fuite après compteur',           id: 'FT' },
+    { description: 'Fuite avant compteur',           id: 'FU' },
+
+    { description: 'Gazon ou jardin',                id: 'GZ' },
+
+    { description: 'Inhabité',                       id: 'IH' },
+
+    { description: 'Non relevé',                     id: 'NR' },
+    { description: 'Non vu',                         id: 'NV' },
+    { description: 'N° compteur différent',          id: 'DD' },
+    { description: 'Branchement non trouvé',         id: 'NT' },
+
+    { description: 'Porte fermée',                   id: 'PF' },
+
+    { description: 'Surfacturation',                 id: 'SF' },
+
+    { description: 'Vitre fissurée',                 id: 'VF' }
+];
+
+
+
+const anomalySelect = document.getElementById('anomalySelect');
+
+// Charger les types d’anomalies
+anomalySelect.innerHTML = anomalyItems
+    .map(a => `<option value="${a.id}">${a.description}</option>`)
+    .join('');
+
+
+anomalySelect.addEventListener('change', () => {
+    if (!currentRows || currentRows.length === 0) return;
+
+    const code = anomalySelect.value;
+    let filtered = [];
+
+    if (code === 'ALL') {
+        filtered = currentRows.filter(r =>
+            r.anomrp && r.anomrp.trim() !== ""
+        );
+    } else {
+        filtered = currentRows.filter(r =>
+            String(r.anomrp).trim() === code
+        );
+    }
+
+    renderTable(filtered);
+    updateMap(filtered);
+    document.getElementById("totalReleves").textContent =
+        `Total : ${filtered.length} relèves (anomalie ${code})`;
+});
+
+//=======================21/01/2026===================================
+
+// 👉 Quand l’utilisateur choisit une option
+filterSelect.addEventListener('change', () => {
+    if (!currentRows || currentRows.length === 0) {
+        alert("Aucune donnée à filtrer !");
+        return;
+    }
+
+    const val = filterSelect.value;
+    let filtered = [];
+
+    anomalySelect.style.display = 'none';
+
+    if (val === 'indexes') {
+        filtered = currentRows.filter(r =>
+            Number(r.aindrp) !== 0 && Number(r.indsrp) !== 0
+        );
+    }
+    else if (val === 'non_indexes') {
+        filtered = currentRows.filter(r =>
+            Number(r.aindrp) !== 0 && (!r.indsrp || Number(r.indsrp) === 0)
+        );
+    }
+    else if (val === 'anomalie') {
+        anomalySelect.style.display = 'block';
+        filtered = currentRows.filter(r =>
+            r.anomrp && r.anomrp.trim() !== ""
+        );
+    }
+    else if (val === 'restant') {   // ✅ NOUVEAU FILTRE
+        filtered = currentRows.filter(r =>
+            Number(r.daterp) === 0 || r.matrrp == ""
+        );
+    }
+    else {
+        filtered = [...currentRows];
+    }
+
+    renderTable(filtered);
+    updateMap(filtered);
+    document.getElementById("totalReleves").textContent =
+        `Total : ${filtered.length} relèves (filtrées)`;
+});
+
+
+
+    // Leaflet map
+    let map = L.map('map').setView([6.3, 2.4], 6);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'&copy; OpenStreetMap'}).addTo(map);
+    let markers=[], lines=[];
+
+    function updateMap(rows){
+    markers.forEach(m=>map.removeLayer(m));
+    markers = [];
+    lines.forEach(l=>map.removeLayer(l));
+    lines = [];
+
+    if(!rows || rows.length===0) return;
+
+    rows.forEach(r => {
+        const latR = parseFloat(r.gpsyrp);
+        const lonR = parseFloat(r.gpsxrp);
+        const latC = r.gpryrp ? parseFloat(r.gpryrp) : null;
+        const lonC = r.gprxrp ? parseFloat(r.gprxrp) : null;
+
+        if(latR && lonR){
+            const m = L.marker([latR, lonR])
+                .addTo(map)
+                .bindPopup(`
+                <b>Releveur</b><br>
+                Matricule: ${r.matrrp || ""}<br>
+                GPS: ${latR}, ${lonR}
+                `);
+
+            markers.push(m);
+        }
+
+        if(latC && lonC){
+            const m2 = L.marker([latC, lonC], {icon:L.icon({iconUrl:'images/pin.png', iconSize:[25,41], iconAnchor:[12,41]})})
+                .addTo(map)
+                .bindPopup(`
+                <b>Compteur</b><br>
+                Référence: ${r.referp || ""}<br>
+                Abonné: ${r.nomurp || ""}<br>
+                Ancien Index: ${r.aindrp || ""}<br>
+                Nouvel Index: ${r.indsrp || ""}<br>
+                GPS: ${latC}, ${lonC}
+                `);
+
+            markers.push(m2);
+
+            if(latR && lonR){
+                const dist = haversine(latR, lonR, latC, lonC);
+                const line = L.polyline([[latR, lonR], [latC, lonC]], {color: 'blue'})
+                    .addTo(map)
+                    .bindPopup(`Distance: ${dist !== null ? dist + " m" : "N/A"}`);
+                lines.push(line);
+            }
+        }
+    });
+}
+
+
+    // Rechercher par matricule
+        async function search(mat){
+        if(!mat) return alert("Saisir ou sélectionner un matricule.");
+        
+        // 👉 Afficher le loader
+        document.getElementById("loader").style.display = "block";
+        
+        try{
+            const res = await fetch(API_RELEVE + encodeURIComponent(mat));
+            if(!res.ok) {
+                renderTable([]);
+                updateMap([]);
+                document.getElementById("totalReleves").textContent = "Total : 0 relèves";
+            } else {
+                const data = await res.json();
+                const rows = Array.isArray(data) ? data : [data];
+
+                // 👉 Date limite (20 janvier 2026)
+                const DATE_LIMITE = 20260120;
+                
+                // 👉 Filtrer : garder >= 20/01/2026 + garder les daterp = 0
+                const filteredRows = rows.filter(r =>
+                    Number(r.daterp) >= DATE_LIMITE || Number(r.daterp) === 0
+                );
+
+                currentRows = filteredRows;
+
+                // 🔹 Afficher le total filtré
+                document.getElementById("totalReleves").textContent =
+                    //`Total : ${filteredRows.length} relèves (depuis 20/01/2026)`;
+                    `Total : ${filteredRows.length} relèves`;
+
+                renderTable(filteredRows);
+                updateMap(filteredRows);
+
+            }
+        }catch(err){ 
+            console.error(err); 
+            alert("Erreur récupération données"); 
+            document.getElementById("totalReleves").textContent = "Total : 0 relèves";
+        } finally {
+            // 👉 Masquer le loader après le chargement
+            document.getElementById("loader").style.display = "none";
+        }
+    }
+
+
+
+    // Evènements
+    btn.addEventListener('click', ()=>{ 
+
+        let mat = input.value.trim();
+
+        // priorité à la saisie manuelle
+        if(mat === "") mat = select.value;
+
+        if(!isValidMatricule(mat)){
+            alert("Veuillez saisir un matricule valide à 4 chiffres.");
+            return;
+        }
+
+        // synchronisation champs
+        input.value = mat;
+        select.value = mat;
+
+        document.getElementById("countResult").textContent = "";
+        //document.getElementById("dateFilter").value = "";
+
+        afficherTotauxMini(mat);
+        search(mat); 
+    });
+
+
+
+    clearBtn.addEventListener('click', ()=>{
+
+        // 🔥 Effacer les champs matricule
+        input.value = '';
+        select.value = '';
+
+        // 🔥 Vider tableau + carte
+        renderTable(null);
+        updateMap(null);
+
+        // 🔥 Réinitialiser le total
+        document.getElementById("totalReleves").textContent = "Total : 0 relèves";
+
+        // 🔥 Effacer le résultat du comptage
+        document.getElementById("countResult").textContent = "";
+
+        // 🔥 Effacer la date sélectionnée
+        //document.getElementById("dateFilter").value = "";
+
+        // 🔥 Réinitialiser les données courantes des totaux à relever, relevés et restants se trouvant sur la page
+        document.getElementById("totalAReleverMini").textContent = "—";
+        document.getElementById("totalReleMini").textContent = "—";
+        document.getElementById("totalRestMini").textContent = "—";
+
+        // 🔥 Réinitialiser les données courantes
+        currentRows = [];
+    });
+
+    input.addEventListener('keyup', e=>{
+        if(e.key === 'Enter'){
+            btn.click();
+        }
+    });
+
+    select.addEventListener('change', ()=>{ 
+
+        const mat = select.value;
+
+        if(!isValidMatricule(mat)) return;
+
+        input.value = mat;
+
+        document.getElementById("countResult").textContent = "";
+        //document.getElementById("dateFilter").value = "";
+
+        afficherTotauxMini(mat);
+        search(mat);
+    });
+
+
+    // ==================04.02.2026=============
+    // 🔍 Recherche Abonné dans currentRows
+    // =========================================
+    function searchAbonnee(keyword) {
+
+        if (!currentRows || currentRows.length === 0) {
+            alert("Veuillez d'abord charger un matricule !");
+            return;
+        }
+
+        if (!keyword || keyword.trim() === "") {
+            alert("Veuillez saisir un nom ou une référence !");
+            return;
+        }
+
+        keyword = keyword.toLowerCase().trim();
+
+        const filtered = currentRows.filter(r =>
+            (r.nomurp && r.nomurp.toLowerCase().includes(keyword)) ||
+            (r.referp && r.referp.toLowerCase().includes(keyword))
+        );
+
+        if (filtered.length === 0) {
+            alert("Aucun abonné trouvé !");
+            return;
+        }
+
+        renderTable(filtered);
+        updateMap(filtered);
+
+        document.getElementById("totalReleves").textContent =
+            `Total : ${filtered.length} relèves (abonné filtré)`;
+    }
+
+    // Bouton recherche
+    abonneeSearchBtn.addEventListener("click", () => {
+        searchAbonnee(abonneeInput.value);
+    });
+
+    // Touche Entrée
+    abonneeInput.addEventListener("keyup", (e) => {
+        if (e.key === "Enter") {
+            searchAbonnee(abonneeInput.value);
+        }
+    });
+
+    // 🔄 Réinitialiser
+    function resetAbonnee() {
+        if (!currentRows || currentRows.length === 0) return;
+
+        abonneeInput.value = "";
+        renderTable(currentRows);
+        updateMap(currentRows);
+
+        document.getElementById("totalReleves").textContent =
+            `Total : ${currentRows.length} relèves`;
+    }
+    // ✅ Permet au bouton onclick de fonctionner
+        window.resetAbonnee = resetAbonnee;
+
+
+    // ===================04.02.2026============
+    
+
+    // Init
+    await loadReleveurs();
+    })();
+
+    // Export Excel
+    document.getElementById('exportExcelBtn').addEventListener('click', () => {
+        const table = document.getElementById('resultTable');
+        const wb = XLSX.utils.table_to_book(table, {sheet:"Releves"});
+        XLSX.writeFile(wb, "releves.xlsx");
+    });
+
+    
+    // Export PDF
+    /*document.getElementById('exportPdfBtn').addEventListener('click', () => {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+
+        doc.text("Liste des Relevés", 14, 10);
+        doc.autoTable({
+            html: '#resultTable',
+            startY: 20,
+        });
+        doc.save("releves.pdf");
+    });*/
+
+
+    function isValidMatricule(mat){
+                return /^[0-9]{4}$/.test(mat);
+            }
+
+
+
+    function printTableUltra(){
+
+        const d = new Date();
+
+        document.getElementById("printDate").innerHTML =
+            "Imprimé le : " +
+            d.toLocaleDateString() +
+            " à " +
+            d.toLocaleTimeString();
+
+        /* NOM RELEVEUR */
+        const sel = document.getElementById("releveurSelect");
+        const releveurNom = sel.options[sel.selectedIndex]?.text || "";
+        document.getElementById("printReleveur").innerHTML =
+            "Releveur : " + releveurNom;
+
+        /* TOTAUX */
+        const aRelever = document.getElementById("totalAReleverMini")?.innerText || "-";
+        const rele = document.getElementById("totalReleMini")?.innerText || "-";
+        const rest = document.getElementById("totalRestMini")?.innerText || "-";
+
+        document.getElementById("printTotals").innerHTML =
+            "Total à relever : "+aRelever+
+            " | Effectué : "+rele+
+            " | Restant : "+rest;
+
+        window.print();
+    }
+
+
+    </script>
+    <div class="print-footer">
+        <div class="footer-left">
+            Société Nationale des Eaux
+        </div>
+
+        <div class="footer-right page-number"></div>
+    </div>
+
+    </body>
+    </html>
+

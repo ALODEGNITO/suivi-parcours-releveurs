@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+
+<!-- code responsive -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<title>Classement Individuel</title>
+
+<!-- Style global -->
+<link rel="stylesheet" href="css/style.css">
+
+        <script>
+            fetch("/favicon.html")
+            .then(res => res.text())
+            .then(html => {
+                document.head.innerHTML += html;
+            });
+        </script>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<!-- Librairies jsPDF et autoTable -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
+<style>
+body { margin:0; font-family: Arial, sans-serif; background:#f5f6fa; padding:20px; }
+h2 { text-align:center; color:#007bff; }
+.user-image { display:block; margin:10px auto; width:80px; height:80px; border-radius:50%; object-fit:cover; box-shadow:0 2px 5px rgba(0,0,0,.2); }
+table { width:100%; border-collapse:collapse; margin-top:20px; background:#fff; box-shadow:0 2px 5px rgba(0,0,0,.1); }
+th, td { border:1px solid #ddd; padding:10px; text-align:center; font-size:14px; }
+th { background:#007bff; color:#fff; }
+tr:nth-child(even) { background:#f9f9f9; }
+button { padding:8px 12px; margin:5px; background:#007bff; color:#fff; border:none; border-radius:4px; cursor:pointer; }
+button:hover { background:#0056b3; }
+select, input { padding:6px; margin:5px; }
+#chartContainer { margin:30px auto; height:250px; width:250px; background:#fff; padding:15px; box-shadow:0 2px 5px rgba(0,0,0,.1); border-radius:8px; }
+.badge { padding:4px 8px; border-radius:4px; color:#fff; font-size:12px; }
+.presque-termine { background:green; }
+.en-cours { background:orange; }
+.en-retard { background:red; }
+.terminee { background:blue; }
+.rank-btn { background: #ff0707; color:#fff; } .rank-btn:hover { background: #e0a800; }
+
+@media (max-width:600px){
+    #chartContainer { width:90%; height:250px; }
+}
+
+/* Representation des couleurs du statut */
+#chartLegend h4 {
+    margin-bottom: 8px;
+    color: #333;
+}
+
+#chartLegend ul li {
+    display: flex;
+    align-items: center;
+}
+
+
+/* ===================== IMPRESSION ULTRA PRO ===================== */
+
+#printHeader{
+    display:none;
+}
+
+@media print{
+
+    @page{
+        size:A4 landscape;
+        margin:12mm;
+    }
+
+    body{
+        background:white;
+        padding:0;
+    }
+
+    /* cacher tout sauf zone impression */
+    button,
+    select,
+    input,
+    #chartContainer,
+    #chartLegend,
+    #tempsMoyenContainer,
+    img.user-image{
+        display:none !important;
+    }
+
+    /* header impression */
+    #printHeader{
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        border-bottom:2px solid #000;
+        padding-bottom:8px;
+        margin-bottom:10px;
+    }
+
+    #printHeader img{
+        height:55px;
+    }
+
+    #printTitle{
+        text-align:center;
+        font-size:18px;
+        font-weight:bold;
+        flex:1;
+    }
+
+    #printMeta{
+        font-size:11px;
+        text-align:right;
+    }
+
+    table{
+        width:100%;
+        border-collapse:collapse;
+        font-size:11px;
+    }
+
+    th{
+        background:#eee !important;
+        color:#000 !important;
+    }
+
+    th,td{
+        border:1px solid #999;
+        padding:5px;
+    }
+
+    thead{
+        display:table-header-group;
+    }
+
+    tr{
+        page-break-inside:avoid;
+    }
+
+}
+
+
+</style>
+</head>
+
+<!-- code pour controler les inactivites -->
+<!-- <script src="js/logout.js"></script>-->
+
+<body>
+
+<div id="printHeader">
+    <img src="images/logos-NDE.png">
+    <div id="printTitle">STATISTIQUES INDIVIDUELLES DU RELEVEUR</div>
+    <div id="printMeta">
+        <div id="printNom"></div>
+        <div id="printDate"></div>
+    </div>
+</div>
+
+
+<button onclick="window.location.href='classement.html'">⬅ Retour au classement</button>
+<h2>Statistiques Personnelles d'un Releveur</h2>
+<div id="tempsMoyenContainer" style="position:absolute; top:20px; right:20px; background:#fff; padding:10px 15px; border-radius:8px; box-shadow:0 2px 5px rgba(0,0,0,.2); font-weight:bold;">
+    Temps moyen par relevé : <span id="tempsMoyen">--</span>
+</div>
+
+
+<!-- Image utilisateur -->
+<img src="/images/user.png" alt="Utilisateur" class="user-image">
+
+<div>
+    <label for="matriculeSelect">🔎 Choisir un releveur :</label>
+    <select id="matriculeSelect" onchange="afficherReleveur()">
+        <option value="">-- Sélectionner --</option>
+    </select>
+
+    <label for="matriculeInput">ou saisir le matricule :</label>
+    <input type="text" id="matriculeInput" placeholder="Ex: 0001">
+</div>
+
+<!-- Bouton Export PDF -->
+<!-- <button onclick="exporterPDF()">📄 Exporter en PDF</button>-->
+<button onclick="printIndividuelPro()">🖨 Imprimer en pdf</button>
+<button class="rank-btn" onclick="window.location.href='classement-en-nombre-de-releves.html'" style="background-color:#b91c1c;">
+Retour</button>
+
+<table>
+    <thead>
+        <tr>
+            <th>Matricule</th>
+            <th>Nom du releveur</th>
+            <th>Nombre de Points à relever</th>
+            <th>Points effectués</th>
+            <th>Points restants</th>
+            <th>Points avec anomalie</th>
+            <th>Statistique (%)</th>
+            <th>Statut</th>
+        </tr>
+    </thead>
+    <tbody id="indivTable"></tbody>
+</table>
+
+<div id="chartContainer">
+    <canvas id="indivChart"></canvas>
+</div>
+
+<!-- Légende des couleurs du statut -->
+<div id="chartLegend" style="margin-top:15px; text-align:center;">
+    <h4>🗂️ Légende des couleurs du statut</h4>
+    <ul style="list-style:none; padding:0; display:flex; justify-content:center; gap:20px; font-size:14px;">
+        <li><span class="color-box" style="background:#007bff; width:15px; height:15px; display:inline-block; margin-right:6px; border-radius:3px;"></span>Tournée terminé (100%)</li>
+        <li><span class="color-box" style="background:green; width:15px; height:15px; display:inline-block; margin-right:6px; border-radius:3px;"></span>Presque terminé (≥90%)</li>
+        <li><span class="color-box" style="background:orange; width:15px; height:15px; display:inline-block; margin-right:6px; border-radius:3px;"></span>En cours (&lt;90%)</li>
+    </ul>
+</div>
+
+<script>
+// ✅ Variables globales
+let releveurActuel = null;
+let chart;
+let releveursList = [];       // Liste du combo
+let releveursData = [];       // Toutes les données individuelles
+
+function showLoader() {
+    // exemple simple
+    if(!document.getElementById("loader")) {
+        const div = document.createElement("div");
+        div.id = "loader";
+        div.style.position = "fixed";
+        div.style.top = "0";
+        div.style.left = "0";
+        div.style.width = "100%";
+        div.style.height = "100%";
+        div.style.background = "rgba(0,0,0,0.3)";
+        div.style.zIndex = "9999";
+        div.innerHTML = '<div style="position:absolute;top:50%;left:50%;transform:translate(-50%, -50%);font-size:24px;color:#fff;">Chargement...</div>';
+        document.body.appendChild(div);
+    }
+}
+function hideLoader() {
+    const loader = document.getElementById("loader");
+    if(loader) loader.remove();
+}
+
+
+// 1️⃣ Précharger la liste des releveurs pour le combo
+async function fetchReleveursList() {
+    try {
+        const res = await fetch("http://41.138.61.43:8082/api/wseentrele");
+        const data = await res.json();
+        releveursList = data;
+
+        const select = document.getElementById("matriculeSelect");
+        select.innerHTML = `<option value="">-- Sélectionner --</option>`;
+        data.forEach(r => {
+            const opt = document.createElement("option");
+            opt.value = r.matrire;
+            opt.textContent = `${r.matrire} - ${r.nomprre}`;
+            select.appendChild(opt);
+        });
+    } catch (err) {
+        console.error("Erreur récupération liste releveurs:", err);
+    }
+}
+
+// 2️⃣ Précharger toutes les données individuelles une seule fois
+async function fetchReleveursData() {
+    try {
+        const res = await fetch("http://41.138.61.43:8081/api/wseentrelec");
+        releveursData = await res.json();
+    } catch (err) {
+        console.error("Erreur récupération données individuelles:", err);
+    }
+}
+async function afficherReleveur(matricule=null) {
+
+    showLoader();
+
+    try {
+
+        const mat = matricule || document.getElementById("matriculeSelect").value;
+
+        if (!mat) {
+            hideLoader();
+            return;
+        }
+
+        // Chercher dans les données préchargées
+        let r = releveursData.find(x => x.matriaa === mat);
+
+        // Si pas trouvé par matricule, essayer via la liste
+        if (!r) {
+            const selectedReleveur = releveursList.find(x => x.matrire === mat);
+            if (selectedReleveur) {
+                r = releveursData.find(x =>
+                    x.nomaa.includes(selectedReleveur.nomprre.split(" ")[0])
+                );
+            }
+        }
+
+        if (!r) {
+            document.getElementById("indivTable").innerHTML = "";
+            if (chart) chart.destroy();
+            releveurActuel = null;
+            hideLoader();
+            return;
+        }
+
+        releveurActuel = r;
+
+        const total = r.nbretotal;
+        const effectues = r.nbrerele;
+        const restants = r.nbrerest;
+
+        const percentEffectues = ((effectues / total) * 100).toFixed(1);
+        const percentRestants = ((restants / total) * 100).toFixed(1);
+
+        const percent = ((effectues / total) * 100).toFixed(1);
+
+        // Déterminer statut
+        let badge = "", cls = "";
+        if (effectues >= total) {
+            badge = "✅ Tournée terminée";
+            cls = "terminee";
+        } else if (percent > 70) {
+            badge = "🎯 Presque terminé";
+            cls = "presque-termine";
+        } else if (percent > 0) {
+            badge = "⏳ En cours";
+            cls = "en-cours";
+        } else {
+            badge = "⚠️ En retard";
+            cls = "en-retard";
+        }
+
+        // ✅ UN SEUL appel anomalies
+        const result = await calculerAnomalies(mat);
+        const anomaliesNombre = result.anomalies;
+        const anomaliesPourcent = result.pourcentage;
+
+        // ✅ Calcul temps moyen
+        const temps = await calculerTempsMoyen(mat);
+        document.getElementById("tempsMoyen").textContent = temps;
+
+        // ===== Tableau =====
+        document.getElementById("indivTable").innerHTML = `
+            <tr>
+                <td>${r.matriaa}</td>
+                <td>${r.nomaa}</td>
+                <td>${total}</td>
+                <td>${effectues} (${percentEffectues}%)</td>
+                <td>${restants} (${percentRestants}%)</td>
+                <td>${anomaliesNombre} (${anomaliesPourcent}%)</td>
+                <td>${percentEffectues}%</td>
+                <td><span class="badge ${cls}">${badge}</span></td>
+            </tr>
+        `;
+
+        // ===== Graphique =====
+        const ctx = document.getElementById("indivChart").getContext("2d");
+        if (chart) chart.destroy();
+
+        chart = new Chart(ctx, {
+            type: "doughnut",
+            data: {
+                labels: ["Effectués", "Restants", "Anomalies"],
+                datasets: [{
+                    data: [
+                        effectues,
+                        restants,
+                        anomaliesNombre
+                    ],
+                    backgroundColor: [
+                        "#28a745",
+                        "#dc3545",
+                        "#fd7e14"
+                    ]
+                }]
+            },
+            options: {
+                maintainAspectRatio: false,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: `Avancement de ${r.nomaa} (${percent}%)`
+                    },
+                    legend: {
+                        display: true,
+                        position: "bottom"
+                    }
+                }
+            }
+        });
+
+        // Synchroniser select et input
+        document.getElementById("matriculeSelect").value = mat;
+        document.getElementById("matriculeInput").value = mat;
+
+    } catch (error) {
+        console.error("Erreur affichage releveur :", error);
+    }
+
+    hideLoader();
+}
+
+
+// Recherche dynamique à la saisie
+document.getElementById("matriculeInput").addEventListener("input", function(){
+    const val = this.value.trim();
+    if(val) afficherReleveur(val);
+    else {
+        document.getElementById("indivTable").innerHTML = "";
+        if(chart) chart.destroy();
+        document.getElementById("matriculeSelect").value = "";
+        releveurActuel = null;
+    }
+});
+
+// Export PDF
+/*function exporterPDF() {
+    if(!releveurActuel) {
+        alert("Veuillez d'abord sélectionner un releveur.");
+        return;
+    }
+
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    doc.setFontSize(16);
+    doc.text(`Classement Individuel - ${releveurActuel.nomaa}`, 14, 20);
+
+    const dateExport = new Date().toLocaleString();
+    doc.setFontSize(10);
+    doc.text(`Exporté le : ${dateExport}`, 14, 28);
+
+    const table = document.querySelector("#indivTable").innerHTML;
+    const tempDiv = document.createElement("table");
+    tempDiv.innerHTML = table;
+
+    const head = [["Matricule","Nom","Points à effectuer","Points effectués","Points restants","Statistique (%)","Statut"]];
+    const body = [];
+    tempDiv.querySelectorAll("tr").forEach(row=>{
+        const rowData=[];
+        row.querySelectorAll("td").forEach(cell=>rowData.push(cell.innerText));
+        if(rowData.length>0) body.push(rowData);
+    });
+
+    doc.autoTable({ head: head, body: body, startY: 35 });
+    doc.save(`releveur_${releveurActuel.matriaa}.pdf`);
+}*/
+
+// ⚡ Initialisation rapide
+(async function init() {
+    await fetchReleveursList();
+    await fetchReleveursData(); // Précharger toutes les données pour rendre la recherche instantanée
+})();
+
+
+async function calculerTempsMoyen(matricule) {
+    try {
+        let res = await fetch(`http://41.138.61.43:8081/api/wseentrelec/${matricule}`);
+        let data = await res.json();
+
+        // Normaliser en tableau
+        if (!Array.isArray(data)) data = [data];
+
+        // Exclure les relevés avec date ou heure = 0
+        data = data.filter(r => r.daterp !== 0 && r.heurrp !== 0);
+
+        if (data.length < 2) return "--"; // pas assez de relevés valides
+
+        // Trier par date + heure
+        data.sort((a, b) => {
+            const dateA = a.daterp.toString().padStart(8,'0') + a.heurrp.toString().padStart(6,'0');
+            const dateB = b.daterp.toString().padStart(8,'0') + b.heurrp.toString().padStart(6,'0');
+            return dateA.localeCompare(dateB);
+        });
+
+        // Convertir date + heure en Date
+        function convertToDate(daterp, heurrp) {
+            const annee = Math.floor(daterp / 10000);
+            const mois = Math.floor((daterp % 10000) / 100) - 1;
+            const jour = daterp % 100;
+            const heures = Math.floor(heurrp / 10000);
+            const minutes = Math.floor((heurrp % 10000) / 100);
+            const secondes = heurrp % 100;
+            return new Date(annee, mois, jour, heures, minutes, secondes);
+        }
+
+        // Calculer les intervalles
+        const deltas = [];
+        for (let i = 1; i < data.length; i++) {
+            const prevDate = convertToDate(data[i-1].daterp, data[i-1].heurrp);
+            const currDate = convertToDate(data[i].daterp, data[i].heurrp);
+            deltas.push((currDate - prevDate)/1000); // secondes
+        }
+
+        const moyenneSec = deltas.reduce((a,b) => a+b, 0) / deltas.length;
+
+        const minutes = Math.floor(moyenneSec / 60);
+        const secondes = Math.round(moyenneSec % 60);
+
+        return `${minutes} min ${secondes} s`;
+    } catch(err) {
+        console.error("Erreur calcul temps moyen:", err);
+        return "--";
+    }
+}
+
+
+
+async function calculerAnomalies(matricule) {
+    try {
+        const res = await fetch(`http://41.138.61.43:8081/api/wseentrelec/${matricule}`);
+        let data = await res.json();
+
+        if (!Array.isArray(data)) data = [data];
+
+        const anomaliesCodes = [
+            "AD","AM","AG","AR","BC","BD","CH","AB","CT","CB","CA","CP","CF","CD","CE","ET","CI","CV",
+            "PP","CZ","DI","ER","EF","FC","FR","FT","FU","GZ","IH","NR","NV","DD","NT","PF","SF","VF"
+        ];
+
+        const totalReleves = data.length;
+
+        const anomalies = data.filter(r =>
+            anomaliesCodes.includes(r.anomrp)
+        ).length;
+
+        const pourcentage = totalReleves > 0
+            ? ((anomalies / totalReleves) * 100).toFixed(1)
+            : 0;
+
+        return {
+            anomalies,
+            pourcentage
+        };
+    } catch (err) {
+        console.error("Erreur calcul anomalies :", err);
+        return { anomalies: 0, pourcentage: 0 };
+    }
+}
+
+// Fonction d'impression
+function printIndividuelPro(){
+
+    if(!releveurActuel){
+        alert("Veuillez sélectionner un releveur");
+        return;
+    }
+
+    // nom releveur
+    document.getElementById("printNom").innerHTML =
+        "Releveur : " +
+        releveurActuel.nomaa +
+        " ("+releveurActuel.matriaa+")";
+
+    // date impression
+    const d=new Date();
+    document.getElementById("printDate").innerHTML =
+        "Imprimé le : "+
+        d.toLocaleDateString()+
+        " à "+
+        d.toLocaleTimeString();
+
+    window.print();
+}
+
+
+</script>
+
+
+
+</body>
+</html>
