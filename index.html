@@ -196,7 +196,7 @@ async function login() {
     }
 
     // ✅ Appel API avec téléphone fixé à 00000000
-    const url = `https://proxy-api.onrender.com/api/wseentrele/${matricule}?tele=00000000&pass=${pwd}`;
+    const url = `https://mon-proxy-render.onrender.com/api/auth/${matricule}/${pwd}`;
 
     try {
         const response = await fetch(url, { method: "GET" });
@@ -240,6 +240,7 @@ window.onload = () => {
 
 </body>
 </html>
+
 
 
 
